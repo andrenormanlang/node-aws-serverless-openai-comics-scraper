@@ -1,0 +1,79 @@
+name: Deploy main branch
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - development
+      - main
+
+env:
+  _ENVIRONMENT: development
+  _REPOSITORY_NAME: github-action-nodejs-serverless
+
+jobs:
+  DeployDevelopment:
+    if: github.ref == 'refs/heads/development'
+    name: Deploy Development
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14.x]
+    env:
+      _ENVIRONMENT: development
+      STAGE: development
+      AWS_REGION: eu-north-1
+    steps:
+      - name: Print Name
+        run: echo "hello this is our $_ENVIRONMENT, Stage  $STAGE"
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Npm install
+        run: npm install
+      - name: Serverless deploy
+        uses: serverless/github-action@master
+        with:
+          args: deploy
+        env:
+          LOG_LEVEL: debug
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+  DeployProduction:
+    if: github.ref == 'refs/heads/main'
+    name: Deploy Production
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [14.x]
+    env:
+      _ENVIRONMENT: production
+      STAGE: production
+      AWS_REGION: eu-north-1
+    steps:
+      - name: Print Name
+        run: echo "hello this is our $_ENVIRONMENT, Stage  $STAGE"
+      - name: Checkout Repository
+        uses: actions/checkout@v2
+        with:
+          persist-credentials: false
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v1
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Npm install
+        run: npm install
+      - name: Serverless deploy
+        uses: serverless/github-action@master
+        with:
+          args: deploy
+        env:
+          LOG_LEVEL: info
+          AWS_ACCESS_KEY_ID: ${{ secrets.PROD_AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.PROD_AWS_SECRET_ACCESS_KEY }}
