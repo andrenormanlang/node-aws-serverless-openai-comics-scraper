@@ -1,0 +1,55 @@
+---
+service: wingednews-api-v3
+frameworkVersion: "3"
+package:
+  individually: false
+  exclude:
+    - tests/**
+plugins:
+  - serverless-bundle
+  - serverless-offline
+  - serverless-dynamo-stream-plugin
+provider:
+  name: aws
+  runtime: nodejs20.x
+  stage: ${env:STAGE, 'development'}
+  tableName: "${self:provider.stage}-wingednews"
+  stackName: ${self:service}-${self:provider.stage}
+  apiName: ${self:service}-${self:provider.stage}
+  region: ${env:AWS_REGION, 'eu-central-1'}
+  memorySize: 1024
+  environment:
+    tableName: ${self:provider.tableName}
+
+  iamRoleStatements:
+    - Effect: Allow
+      Action:
+        - dynamodb:DescribeTable
+        - dynamodb:Query
+        - dynamodb:Scan
+        - dynamodb:GetItem
+        - dynamodb:PutItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+        - dynamodb:BatchWriteItem
+        - dynamodb:BatchGetItem
+        - dynamodb:UpdateTimeToLive
+      Resource: "arn:aws:dynamodb:eu-north-1:*:*"
+functions:
+  add_articles:
+    handler: src/articles/add_articles.main
+    events:
+      - schedule: rate(15 minutes)
+
+  smart_get_article:
+    handler: src/articles/get_article.main
+    events:
+      - http:
+          path: smart/article/{url}
+          method: get
+          cors: true
+          authorizer: aws_iam
+
+resources:
+  # DynamoDB
+  - ${file(resources/dynamodb-table.yml)}

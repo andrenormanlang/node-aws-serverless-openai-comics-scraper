@@ -1,0 +1,23 @@
+
+node_modules/
+.expo/
+dist/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+config.js
+src/configuration.js
+.env.production
+.env.development
+
+# macOS
+.DS_Store
+.vscode/launch.json
+.vscode/.react/debuggerWorker.js
+.env
+.webpack/*
