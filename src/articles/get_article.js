@@ -10,7 +10,7 @@ export const main = handler(async (event, context) => {
   console.log(event);
   const data = event.queryStringParameters;
   console.log("koko: ", data);
-  if (!userId || !q.url) return;
+  if (!q.url) return;
 
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
