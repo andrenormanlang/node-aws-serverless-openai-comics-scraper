@@ -51,7 +51,7 @@ functions:
           authorizer: aws_iam
 
   smart_get_article_feedback:
-    handler: src/article_feedback.main
+    handler: src/articles/get_article_feedback.main
     events:
       - http:
           path: smart/feedback/{articleUrl}
