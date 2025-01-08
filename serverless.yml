@@ -50,6 +50,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  smart_get_article_feedback:
+    handler: src/article_feedback.main
+    events:
+      - http:
+          path: smart/feedback/{articleUrl}
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
