@@ -59,6 +59,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  add_comment:
+    handler: src/articles/add_comment.main
+    events:
+      - http:
+          path: comments
+          method: post
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
