@@ -8,7 +8,7 @@ export const main = handler(async (event, context) => {
     url: decodeURIComponent(event.pathParameters.articleUrl),
   };
 
-  if (!q.url) return;
+  if (!userId || !q.url) return;
 
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
