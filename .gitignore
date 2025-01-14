@@ -8,7 +8,7 @@ npm-debug.*
 *.p12
 *.key
 *.mobileprovision
-*.orig.*
+*.orig.*cd
 web-build/
 config.js
 src/configuration.js
