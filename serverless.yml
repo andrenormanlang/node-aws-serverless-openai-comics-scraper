@@ -68,6 +68,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  get_article_details:
+    handler: src/articles/get_articledetails.main
+    events:
+      - http:
+          path: smart/articledetails/{url}
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
