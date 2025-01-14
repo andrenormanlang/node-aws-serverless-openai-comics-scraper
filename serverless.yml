@@ -77,6 +77,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  smart_get_metadata:
+    handler: src/article/get_metadata.main
+    events:
+      - http:
+          path: smart/metadata/{url}
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
