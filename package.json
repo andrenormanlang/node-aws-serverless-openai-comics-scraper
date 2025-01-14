@@ -21,6 +21,7 @@
         "metascraper-image": "^5.14.2",
         "metascraper-title": "^5.14.2",
         "node-fetch": "^2.7.0",
+        "node-loader": "^2.1.0",
         "openai": "^3.3.0",
         "rss-parser": "^3.9.0",
         "serverless": "^3.0.0",
