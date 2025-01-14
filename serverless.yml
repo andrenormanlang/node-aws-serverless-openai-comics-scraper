@@ -78,7 +78,7 @@ functions:
           authorizer: aws_iam
 
   smart_get_metadata:
-    handler: src/article/get_metadata.main
+    handler: src/articles/get_metadata.main
     events:
       - http:
           path: smart/metadata/{url}
