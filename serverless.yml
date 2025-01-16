@@ -185,6 +185,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  get_trending_comments:
+    handler: src/articles/get_trending_comments.main
+    events:
+      - http:
+          path: smart/trending/comments
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
