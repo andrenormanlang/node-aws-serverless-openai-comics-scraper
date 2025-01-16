@@ -123,7 +123,7 @@ functions:
           authorizer: aws_iam
 
   get_followers:
-    handler: src/handlers/get_followers.main
+    handler: src/articles/get_followers.main
     events:
       - http:
           path: followers
