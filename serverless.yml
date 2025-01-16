@@ -77,15 +77,6 @@ functions:
           cors: true
           authorizer: aws_iam
 
-  smart_get_metadata:
-    handler: src/articles/get_metadata.main
-    events:
-      - http:
-          path: smart/metadata/{url}
-          method: get
-          cors: true
-          authorizer: aws_iam
-
   add_expo_token:
     handler: src/articles/add_expo_token.main
     events:
