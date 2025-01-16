@@ -176,6 +176,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  smart_get_subjects:
+    handler: src/articles/get_subjects.main
+    events:
+      - http:
+          path: smart/subjects
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
