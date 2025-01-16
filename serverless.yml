@@ -86,7 +86,7 @@ functions:
           cors: true
           authorizer: aws_iam
 
-    add_follower:
+  add_follower:
     handler: src/articles/add_follower.main
     events:
       - http:
