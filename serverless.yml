@@ -105,7 +105,7 @@ functions:
           authorizer: aws_iam
 
   get:
-    handler: src/handlers/get.main
+    handler: src/articles/get.main
     events:
       - http:
           path: wingednews/{url}
