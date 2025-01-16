@@ -203,6 +203,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  update_article_feedback:
+    handler: src/articles/update_article_feedback.main
+    events:
+      - http:
+          path: smart/article/{url}
+          method: put
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
