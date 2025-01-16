@@ -95,6 +95,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  check_follower:
+    handler: src/articles/check_follower.main
+    events:
+      - http:
+          path: isfollow
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
