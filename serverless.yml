@@ -212,6 +212,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  smart_update_comment_feedback:
+    handler: src/articles/update_comment_feedback.main
+    events:
+      - http:
+          path: smart/comment/{action}
+          method: put
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
