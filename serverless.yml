@@ -149,6 +149,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  set_profile:
+    handler: src/articles/set_profile.main
+    events:
+      - http:
+          path: profile/{body}
+          method: put
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
