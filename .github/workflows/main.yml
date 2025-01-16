@@ -23,6 +23,7 @@ jobs:
       _ENVIRONMENT: development
       STAGE: development
       AWS_REGION: eu-north-1
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - name: Print Name
         run: echo "hello this is our $_ENVIRONMENT, Stage  $STAGE"
@@ -56,6 +57,7 @@ jobs:
       _ENVIRONMENT: production
       STAGE: production
       AWS_REGION: eu-north-1
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - name: Print Name
         run: echo "hello this is our $_ENVIRONMENT, Stage  $STAGE"
