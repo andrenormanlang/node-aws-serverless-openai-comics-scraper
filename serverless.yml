@@ -158,6 +158,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  smart_get_notifications:
+    handler: src/articles/get_notifications.main
+    events:
+      - http:
+          path: smart/notifications
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
