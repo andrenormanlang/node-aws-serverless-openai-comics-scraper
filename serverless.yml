@@ -167,6 +167,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  get_reported_comments:
+    handler: src/articles/get_reported_comments.main
+    events:
+      - http:
+          path: /comments/reported
+          method: get
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
