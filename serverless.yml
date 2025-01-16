@@ -140,6 +140,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  remove_follower:
+    handler: src/articles/remove_follower.main
+    events:
+      - http:
+          path: unfollow
+          method: post
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
