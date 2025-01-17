@@ -5,6 +5,9 @@ package:
   individually: false
   exclude:
     - tests/**
+    - node_modules/**
+    - venv/**
+
 plugins:
   - serverless-bundle
   - serverless-offline
