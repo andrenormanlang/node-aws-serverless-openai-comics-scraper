@@ -230,6 +230,15 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  smart_update_profile:
+    handler: src/articles/update_profile.main
+    events:
+      - http:
+          path: smart/profile
+          method: put
+          cors: true
+          authorizer: aws_iam
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
