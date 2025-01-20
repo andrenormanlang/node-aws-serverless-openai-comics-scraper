@@ -6,6 +6,7 @@ package:
   patterns:
     - "!node_modules/**"
     - "!venv/**"
+    - "!apienv/**"
 
 plugins:
   - serverless-bundle
