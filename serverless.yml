@@ -217,11 +217,14 @@ functions:
           cors: true
           authorizer: aws_iam
 
-  
-
-  
-
-  
+  delete_comment:
+    handler: src/articles/delete_comment.main
+    events:
+      - http:
+          path: comments
+          method: put
+          cors: true
+          authorizer: aws_iam
 
 resources:
   # DynamoDB
