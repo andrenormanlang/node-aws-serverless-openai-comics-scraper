@@ -1,12 +1,11 @@
 ---
 service: wingednews-api-v3
 frameworkVersion: "3"
+
 package:
-  individually: false
-  exclude:
-    - tests/**
-    - node_modules/**
-    - venv/**
+  patterns:
+    - "!node_modules/**"
+    - "!venv/**"
 
 plugins:
   - serverless-bundle
