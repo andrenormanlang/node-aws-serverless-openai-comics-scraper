@@ -4,9 +4,11 @@ frameworkVersion: "3"
 
 package:
   patterns:
+    - "!.git/**"
+    - "!test/**"
+    - "!e2e/**"
+    - "!src/**"
     - "!node_modules/**"
-    - "!venv/**"
-    - "!apienv/**"
 
 plugins:
   - serverless-bundle
