@@ -217,6 +217,12 @@ functions:
           cors: true
           authorizer: aws_iam
 
+  
+
+  
+
+  
+
 resources:
   # DynamoDB
   - ${file(resources/dynamodb-table.yml)}
