@@ -217,32 +217,11 @@ functions:
           cors: true
           authorizer: aws_iam
 
-  smart_update_comment_feedback:
-    handler: src/articles/update_comment_feedback.main
-    events:
-      - http:
-          path: smart/comment/{action}
-          method: put
-          cors: true
-          authorizer: aws_iam
+  
 
-  smart_update_notifications:
-    handler: src/articles/update_notifications.main
-    events:
-      - http:
-          path: smart/notifications
-          method: put
-          cors: true
-          authorizer: aws_iam
+  
 
-  smart_update_profile:
-    handler: src/articles/update_profile.main
-    events:
-      - http:
-          path: smart/profile
-          method: put
-          cors: true
-          authorizer: aws_iam
+  
 
 resources:
   # DynamoDB
