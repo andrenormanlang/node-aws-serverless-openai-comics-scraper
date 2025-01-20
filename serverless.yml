@@ -208,12 +208,12 @@ functions:
           cors: true
           authorizer: aws_iam
 
-  update_article_feedback:
-    handler: src/articles/update_article_feedback.main
+  delete_account:
+    handler: src/articles/delete_account.main
     events:
       - http:
-          path: smart/article/{url}
-          method: put
+          path: account/delete
+          method: delete
           cors: true
           authorizer: aws_iam
 
