@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="wingednews-api.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>

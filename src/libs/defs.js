@@ -17,6 +17,9 @@ export const TTL_GET_DEFAULT_FOR_LATEST_FEED_ARTICLE = 4;
 export const TTL_GET_DEFAULT_FOR_META_DATA = 12;
 export const TTL_SET_PROFILE_AFTER_UPDATE = 180;
 
+// Article interaction settings
+export const ARTICLE_LEGACY_THRESHOLD_DAYS = 8; // Articles older than this don't track per-user interactions
+
 // Settings for get articles handler
 export const GET_MIN_TS_BETWEEN_SYNCH = 60 * 30;
 export const GET_HOURS_BACK_FOR_DB_UPDATE = 16; // 48
@@ -33,9 +36,7 @@ export const FEEDBACK_TYPE_DISTRUST = 4;
 export const WN_STR_KEY_TABLE = process.env.tableName
   ? process.env.tableName
   : "dev-wingednews";
-export const user_pool_id = process.env.tableName
-  ? "eu-central-1_c8ypQYWI2"
-  : "eu-central-1_kCIcLFMya";
+export const user_pool_id = process.env.userPoolId;
 export const WN_STR_KEY_AMOUNT_INDEX = "sortKey-amount-index";
 
 // Profile
@@ -79,3 +80,20 @@ export const NOTIF_NAME_COMMENT_LIKES = "comment_likes";
 // Error codes
 export const ERROR_CODE_DB_ERROR = 1;
 export const ERROR_CODE_NO_PROFILE = 2;
+
+// OPEN AI KEY
+export const OPEN_AI_KEY = process.env.openAiKey ? process.env.openAiKey : "";
+
+// GPT Model Configuration — single source of truth for defaults
+// Override via: CLI deploy (--gptModelTitle) or runtime DynamoDB config
+export const GPT_MODEL_TITLE_DEFAULT =
+  process.env.GPT_MODEL_TITLE || "gpt-4o-mini";
+export const GPT_MODEL_SHORT_DEFAULT =
+  process.env.GPT_MODEL_SHORT || "gpt-4o-mini";
+export const GPT_MODEL_LONG_DEFAULT = process.env.GPT_MODEL_LONG || "gpt-4o";
+export const GPT_TOKEN_THRESHOLD_DEFAULT =
+  parseInt(process.env.GPT_TOKEN_THRESHOLD, 10) || 6000;
+
+// DynamoDB config record keys
+export const CONFIG_ID = "config";
+export const CONFIG_GPT_SORT_KEY = "gpt-models";

@@ -1,0 +1,10 @@
+{
+  "pathParameters": {
+    "url": "https%3A%2F%2Fwww.svt.se%2Fnyheter%2Futrikes%2Fuppgift-svenska-diplomater-ska-ha-lamnat-nordkorea"
+  },
+  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "body": "{\"nickname\":\"rutger2\",\"profilePic\":\"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ50PSv0wus6lu42feDApWVZkQOsy4LuuDB4TgBoUK1_Vzj5lTf\"}",
+  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
+  }
+}

@@ -1,0 +1,67 @@
+{
+    "Table": {
+        "AttributeDefinitions": [
+            {
+                "AttributeName": "amount",
+                "AttributeType": "N"
+            },
+            {
+                "AttributeName": "id",
+                "AttributeType": "S"
+            },
+            {
+                "AttributeName": "sortKey",
+                "AttributeType": "S"
+            }
+        ],
+        "TableName": "wingednews_str",
+        "KeySchema": [
+            {
+                "AttributeName": "id",
+                "KeyType": "HASH"
+            },
+            {
+                "AttributeName": "sortKey",
+                "KeyType": "RANGE"
+            }
+        ],
+        "TableStatus": "ACTIVE",
+        "CreationDateTime": 1568914777.923,
+        "ProvisionedThroughput": {
+            "NumberOfDecreasesToday": 0,
+            "ReadCapacityUnits": 5,
+            "WriteCapacityUnits": 5
+        },
+        "TableSizeBytes": 270559,
+        "ItemCount": 495,
+        "TableArn": "arn:aws:dynamodb:eu-north-1:325845585854:table/wingednews_str",
+        "TableId": "37396f2a-f1d5-43c8-8c19-7b8c454b2658",
+        "GlobalSecondaryIndexes": [
+            {
+                "IndexName": "sortKey-amount-index",
+                "KeySchema": [
+                    {
+                        "AttributeName": "sortKey",
+                        "KeyType": "HASH"
+                    },
+                    {
+                        "AttributeName": "amount",
+                        "KeyType": "RANGE"
+                    }
+                ],
+                "Projection": {
+                    "ProjectionType": "KEYS_ONLY"
+                },
+                "IndexStatus": "ACTIVE",
+                "ProvisionedThroughput": {
+                    "NumberOfDecreasesToday": 0,
+                    "ReadCapacityUnits": 5,
+                    "WriteCapacityUnits": 5
+                },
+                "IndexSizeBytes": 53832,
+                "ItemCount": 388,
+                "IndexArn": "arn:aws:dynamodb:eu-north-1:325845585854:table/wingednews_str/index/sortKey-amount-index"
+            }
+        ]
+    }
+}
