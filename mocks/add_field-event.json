@@ -1,0 +1,10 @@
+{
+    "fieldParameters" : {
+    "fieldName" : "toggleValues",
+    "fieldValue" : false
+    },
+    "filter" : {
+        "fieldName" : "sortKey",
+        "fieldValue" : "profile"
+    }
+}

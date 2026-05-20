@@ -1,0 +1,189 @@
+{
+  "Records": [
+    {
+      "eventID": "f04c069917c2a78a768050a4b706a9bf",
+      "eventName": "MODIFY",
+      "eventVersion": "1.1",
+      "eventSource": "aws:dynamodb",
+      "awsRegion": "eu-west-1",
+      "dynamodb":     {
+  "ApproximateCreationDateTime": 1623698130,
+  "Keys": {
+      "sortKey": {
+          "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+      },
+      "id": {
+          "S": "supportComments"
+      }
+  },
+  "NewImage": {
+      "sortKey": {
+          "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+      },
+      "id": {
+          "S": "supportComments"
+      },
+      "content": {
+          "L": [
+              {
+                  "M": {
+                      "sortKey": {
+                          "S": "0#74874b40-c53e-11eb-9fc3-1b83abed5787"
+                      },
+                      "author": {
+                          "S": "AlexeY Snisarenko"
+                      },
+                      "commentId": {
+                          "S": "74874b40-c53e-11eb-9fc3-1b83abed5787"
+                      },
+                      "id": {
+                          "N": "174"
+                      },
+                      "title": {
+                          "S": "Anhållna misstänkta för brandattack har släppts"
+                      },
+                      "value": {
+                          "S": "2.0"
+                      },
+                      "url": {
+                          "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts"
+                      },
+                      "subjectId": {
+                          "N": "174"
+                      }
+                  }
+              },
+              {
+                  "M": {
+                      "sortKey": {
+                          "S": "2a0446f0-cc77-11eb-bbe0-eb494faf55e4#83df7bb0-cc7a-11eb-9843-218fed5e85b2"
+                      },
+                      "author": {
+                          "S": "Per Collner"
+                      },
+                      "commentId": {
+                          "S": "83df7bb0-cc7a-11eb-9843-218fed5e85b2"
+                      },
+                      "id": {
+                          "N": "2"
+                      },
+                      "title": {
+                          "S": "Anhållna misstänkta för brandattack har släppts"
+                      },
+                      "value": {
+                          "S": "2.0"
+                      },
+                      "url": {
+                          "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts"
+                      },
+                      "subjectId": {
+                          "N": "2"
+                      }
+                  }
+              },
+              {
+                  "M": {
+                      "sortKey": {
+                          "S": "0#2a0446f0-cc77-11eb-bbe0-eb494faf55e4"
+                      },
+                      "author": {
+                          "S": "Alexei Snisarenko"
+                      },
+                      "commentId": {
+                          "S": "2a0446f0-cc77-11eb-bbe0-eb494faf55e4"
+                      },
+                      "id": {
+                          "N": "90"
+                      },
+                      "title": {
+                          "S": "Anhållna misstänkta för brandattack har släppts"
+                      },
+                      "value": {
+                          "S": "1.0"
+                      },
+                      "url": {
+                          "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts"
+                      },
+                      "subjectId": {
+                          "N": "90"
+                      }
+                  }
+              }
+          ]
+      }
+  },
+  "OldImage": {
+      "sortKey": {
+          "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+      },
+      "id": {
+          "S": "supportComments"
+      },
+      "content": {
+          "L": [
+              {
+                  "M": {
+                      "sortKey": {
+                          "S": "0#74874b40-c53e-11eb-9fc3-1b83abed5787"
+                      },
+                      "author": {
+                          "S": "AlexeY Snisarenko"
+                      },
+                      "commentId": {
+                          "S": "74874b40-c53e-11eb-9fc3-1b83abed5787"
+                      },
+                      "id": {
+                          "N": "174"
+                      },
+                      "title": {
+                          "S": "Anhållna misstänkta för brandattack har släppts"
+                      },
+                      "value": {
+                          "S": "2.0"
+                      },
+                      "url": {
+                          "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts"
+                      },
+                      "subjectId": {
+                          "N": "174"
+                      }
+                  }
+              },
+              {
+                  "M": {
+                      "sortKey": {
+                          "S": "2a0446f0-cc77-11eb-bbe0-eb494faf55e4#83df7bb0-cc7a-11eb-9843-218fed5e85b2"
+                      },
+                      "author": {
+                          "S": "Per Collner"
+                      },
+                      "commentId": {
+                          "S": "83df7bb0-cc7a-11eb-9843-218fed5e85b2"
+                      },
+                      "id": {
+                          "N": "2"
+                      },
+                      "title": {
+                          "S": "Anhållna misstänkta för brandattack har släppts"
+                      },
+                      "value": {
+                          "S": "2.0"
+                      },
+                      "url": {
+                          "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts"
+                      },
+                      "subjectId": {
+                          "N": "2"
+                      }
+                  }
+              }
+          ]
+      }
+  },
+  "SequenceNumber": "879566800000000011119963523",
+  "SizeBytes": 1786,
+  "StreamViewType": "NEW_AND_OLD_IMAGES"
+}
+    }
+  ]
+}

@@ -1,0 +1,9 @@
+{
+  "pathParameters": {
+    "dummy": "wefwef"
+  },  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
+  }
+}

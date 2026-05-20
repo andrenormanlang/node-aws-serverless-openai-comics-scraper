@@ -1,0 +1,70 @@
+Resources:
+  WingedNewsTable:
+    Type: AWS::DynamoDB::Table
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      TableName: ${self:custom.tableName}
+      AttributeDefinitions:
+        - AttributeName: amount
+          AttributeType: N
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: sortKey
+          AttributeType: S
+        - AttributeName: slug
+          AttributeType: S
+        - AttributeName: addedTS
+          AttributeType: N
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+        - AttributeName: sortKey
+          KeyType: RANGE
+      # Set the capacity to auto-scale
+      ProvisionedThroughput:
+        ReadCapacityUnits: 5
+        WriteCapacityUnits: 5
+      GlobalSecondaryIndexes:
+        - IndexName: sortKey-amount-index
+          KeySchema:
+            - AttributeName: sortKey
+              KeyType: HASH
+            - AttributeName: amount
+              KeyType: RANGE
+          Projection:
+            ProjectionType: KEYS_ONLY
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+        - IndexName: sortKey-addedTS-index
+          KeySchema:
+            - AttributeName: sortKey
+              KeyType: HASH
+            - AttributeName: addedTS
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+        - IndexName: slug-index
+          KeySchema:
+            - AttributeName: slug
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
+        - IndexName: GSI_Index
+          KeySchema:
+            - AttributeName: sortKey
+              KeyType: HASH
+            - AttributeName: id
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL
+          ProvisionedThroughput:
+            ReadCapacityUnits: 5
+            WriteCapacityUnits: 5
