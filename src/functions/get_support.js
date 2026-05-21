@@ -27,10 +27,10 @@ export const main = handler(async (event, context) => {
   const resultComments = await dynamoDbLib.call("get", paramsComments);
 
   const result = {
-    articles: Object.keys(resultArticles).length
+    articles: Array.isArray(resultArticles?.Item?.content)
       ? resultArticles.Item.content
       : [],
-    comments: Object.keys(resultComments).length
+    comments: Array.isArray(resultComments?.Item?.content)
       ? resultComments.Item.content
       : [],
   };

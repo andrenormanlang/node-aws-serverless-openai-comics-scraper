@@ -157,6 +157,14 @@ functions:
                   method: get
                   cors: true
                   authorizer: aws_iam
+    get_user_article_item:
+        handler: src/handlers/get_user_article_item.main
+        events:
+            - http:
+                  path: user/{userId}/article/{articleId}
+                  method: get
+                  cors: true
+                  authorizer: aws_iam
     add_expo_token:
         handler: src/handlers/add_expo_token.main
         events:
