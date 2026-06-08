@@ -10,7 +10,7 @@
                 "ApproximateCreationDateTime": 1623698130,
                 "Keys": {
                     "sortKey": {
-                        "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                     },
                     "id": {
                         "S": "supportComments"
@@ -18,7 +18,7 @@
                 },
                 "NewImage": {
                     "sortKey": {
-                        "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                     },
                     "id": {
                         "S": "supportComments"
@@ -114,7 +114,7 @@
                 },
                 "OldImage": {
                     "sortKey": {
-                        "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                     },
                     "id": {
                         "S": "supportComments"

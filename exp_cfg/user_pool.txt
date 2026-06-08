@@ -1,6 +1,6 @@
 {
     "UserPool": {
-        "Id": "eu-central-1_TSBMlepoH",
+        "Id": "eu-north-1_TSBMlepoH",
         "Name": "newsplitter-user-pool",
         "Policies": {
             "PasswordPolicy": {
@@ -260,6 +260,6 @@
                 "EmailSubject": "Your temporary password"
             }
         },
-        "Arn": "arn:aws:cognito-idp:eu-central-1:325845585854:userpool/eu-central-1_TSBMlepoH"
+        "Arn": "arn:aws:cognito-idp:eu-north-1:325845585854:userpool/eu-north-1_TSBMlepoH"
     }
 }

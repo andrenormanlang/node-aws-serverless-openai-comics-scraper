@@ -42,7 +42,7 @@
                                     "userLikes": {
                                         "L": [
                                             {
-                                                "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                                             }
                                         ]
                                     },
@@ -62,7 +62,7 @@
                                     "userLikes": {
                                         "L": [
                                             {
-                                                "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                                             }
                                         ]
                                     },
@@ -82,7 +82,7 @@
                                     "userLikes": {
                                         "L": [
                                             {
-                                                "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                                             }
                                         ]
                                     },
@@ -118,7 +118,7 @@
                                     "userLikes": {
                                         "L": [
                                             {
-                                                "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                                             }
                                         ]
                                     },
@@ -138,7 +138,7 @@
                                     "userLikes": {
                                         "L": [
                                             {
-                                                "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                                             }
                                         ]
                                     },
@@ -158,7 +158,7 @@
                                     "userLikes": {
                                         "L": [
                                             {
-                                                "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                                             }
                                         ]
                                     },
@@ -170,7 +170,7 @@
                         ]
                     },
                     "userId": {
-                        "S": "eu-central-1:c9cb8dd3-cf3e-447a-9b42-a95840afc62e"
+                        "S": "eu-north-1:c9cb8dd3-cf3e-447a-9b42-a95840afc62e"
                     },
                     "feedback": {
                         "M": {
@@ -203,7 +203,7 @@
                                                 "S": "previous"
                                             },
                                             {
-                                                "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                                             }
                                         ]
                                     }
@@ -250,7 +250,7 @@
                         "L": []
                     },
                     "userId": {
-                        "S": "eu-central-1:c9cb8dd3-cf3e-447a-9b42-a95840afc62e"
+                        "S": "eu-north-1:c9cb8dd3-cf3e-447a-9b42-a95840afc62e"
                     },
                     "feedback": {
                         "M": {
@@ -326,7 +326,7 @@
                 "ApproximateCreationDateTime": 1623515861,
                 "Keys": {
                     "sortKey": {
-                        "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                     },
                     "id": {
                         "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#commentFeedback"
@@ -334,7 +334,7 @@
                 },
                 "NewImage": {
                     "sortKey": {
-                        "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                     },
                     "id": {
                         "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#commentFeedback"
@@ -386,7 +386,7 @@
                 },
                 "OldImage": {
                     "sortKey": {
-                        "S": "eu-central-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
                     },
                     "id": {
                         "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#commentFeedback"

@@ -357,7 +357,7 @@ export const main = handler(async (event, context) => {
     // send push notification to replied user
     let recipientProfileData = await dynamoDbLib.getUserProfileData(
       comment.Item.userId,
-      // "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3"
+      // "eu-north-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3"
     );
     let actionProfileData = await dynamoDbLib.getUserProfileData(params.userId);
     console.log("========actionProfileData========", actionProfileData);

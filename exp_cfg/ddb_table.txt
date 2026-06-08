@@ -34,7 +34,7 @@
         },
         "TableSizeBytes": 270559,
         "ItemCount": 495,
-        "TableArn": "arn:aws:dynamodb:eu-central-1:325845585854:table/newsplitter_str",
+        "TableArn": "arn:aws:dynamodb:eu-north-1:325845585854:table/newsplitter_str",
         "TableId": "37396f2a-f1d5-43c8-8c19-7b8c454b2658",
         "GlobalSecondaryIndexes": [
             {
@@ -60,7 +60,7 @@
                 },
                 "IndexSizeBytes": 53832,
                 "ItemCount": 388,
-                "IndexArn": "arn:aws:dynamodb:eu-central-1:325845585854:table/newsplitter_str/index/sortKey-amount-index"
+                "IndexArn": "arn:aws:dynamodb:eu-north-1:325845585854:table/newsplitter_str/index/sortKey-amount-index"
             }
         ]
     }

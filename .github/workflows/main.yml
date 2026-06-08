@@ -30,7 +30,7 @@ jobs:
 #     env:
 #       _ENVIRONMENT: development
 #       STAGE: development
-#       AWS_REGION: eu-central-1
+#       AWS_REGION: eu-north-1
 #       NODE_OPTIONS: --max-old-space-size=4096
 #     steps:
 #       - name: Print Name
@@ -64,7 +64,7 @@ jobs:
 #     env:
 #       _ENVIRONMENT: production
 #       STAGE: production
-#       AWS_REGION: eu-central-1
+#       AWS_REGION: eu-north-1
 #       NODE_OPTIONS: --max-old-space-size=4096
 #     steps:
 #       - name: Print Name

@@ -4,8 +4,8 @@ import handler from "../libs/handler-lib";
 // Import the AWS SDK module
 // const AWS = require("aws-sdk");
 
-// Configure the AWS SDK to use a specific region (eu-central-1)
-// AWS.config.update({ region: "eu-central-1" });
+// Configure the AWS SDK to use a specific region (eu-north-1)
+// AWS.config.update({ region: "eu-north-1" });
 
 function formatPubDate(dateString) {
   try {
