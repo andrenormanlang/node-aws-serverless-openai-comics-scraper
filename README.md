@@ -1,43 +1,136 @@
-# API
+# Newsplitter API
 
-## Info
+Serverless REST API for the Newsplitter application, built with [Serverless Framework v4](https://www.serverless.com/) on AWS Lambda + DynamoDB.
 
-API was built following the [serverless-stack guide](https://serverless-stack.com/#table-of-contents). Follow this guide to get a better understanding on how it's built and how to make changes.
+- **Runtime:** Node.js 24.x
+- **Region:** eu-north-1
+- **Deployment bucket:** `newsplitter-serverless-deploys`
+- **Table name:** `{stage}-newsplitter`
 
-A list containing all endpoints can be found at [serverless.yml](./serverless.yml)
-Perform a global search of the `path` in the project to see where and how endpoints are used.
+---
+
+## Prerequisites
+
+- [Node.js 24+](https://nodejs.org/)
+- [AWS CLI](https://aws.amazon.com/cli/) configured with the `andrenormanlang+aws2` profile
+- A [Serverless Framework](https://www.serverless.com/) account with an access key
+
+---
+
+## Setup
+
+### 1. Install dependencies
+
+```bash
+npm install
+```
+
+### 2. Configure credentials
+
+Create a `.env` file in the project root (already gitignored):
+
+```bash
+SERVERLESS_ACCESS_KEY=<your-serverless-framework-access-key>
+```
+
+Serverless Framework v4 requires this key for deployment. Obtain it from your [Serverless Dashboard](https://app.serverless.com/).
+
+### 3. Create the deployment S3 bucket (first time only)
+
+```bash
+aws s3 mb s3://newsplitter-serverless-deploys --region eu-north-1 --profile andrenormanlang+aws2
+```
+
+### 4. Create required SSM parameters (first time only)
+
+These parameters are resolved by CloudFormation at deploy time and must exist before the first deploy:
+
+```bash
+aws ssm put-parameter \
+  --name "/newsplitter/openai-key" \
+  --value "<your-openai-api-key>" \
+  --type String \
+  --region eu-north-1 \
+  --profile andrenormanlang+aws2
+
+aws ssm put-parameter \
+  --name "/newsplitter/expo-access-token" \
+  --value "<your-expo-access-token>" \
+  --type String \
+  --region eu-north-1 \
+  --profile andrenormanlang+aws2
+```
+
+> **Note:** Parameters must be type `String` (not `SecureString`) — CloudFormation's `{{resolve:ssm:...}}` syntax does not support SecureString in Lambda environment variables.
+
+On Windows (PowerShell), quote the parameter names:
+
+```powershell
+aws ssm put-parameter `
+  --name '/newsplitter/openai-key' `
+  --value '<your-openai-api-key>' `
+  --type String `
+  --region eu-north-1 `
+  --profile andrenormanlang+aws2
+```
+
+---
+
+## Deploy
+
+```bash
+AWS_PROFILE=andrenormanlang+aws2 npx serverless deploy --stage <stage> --region eu-north-1
+```
+
+Common stages:
+
+| Stage | Purpose |
+| ----- | ------- |
+| `temp-dev` | Personal development |
+| `development` | Shared development |
+| `production` | Production |
+
+Example:
+
+```bash
+AWS_PROFILE=andrenormanlang+aws2 npx serverless deploy --stage temp-dev --region eu-north-1
+```
+
+### Remove a deployment
+
+```bash
+AWS_PROFILE=andrenormanlang+aws2 npx serverless remove --stage temp-dev --region eu-north-1
+```
+
+---
+
+## Local development
+
+```bash
+AWS_PROFILE=andrenormanlang+aws2 npx serverless offline --stage temp-dev
+```
+
+API will be available at `http://localhost:3000`.
+
+---
 
 ## Endpoints
 
+All endpoints are defined in [serverless.yml](./serverless.yml). The base URL after deploy is printed in the deploy output as `endpoint`.
+
 ### GET /newsplitter/{url}
 
-Looks at given rss feed and adds articles to database and returns the last 100 articles to the user.
+Fetches articles from an RSS feed, stores them in DynamoDB, and returns the last 100.
 
-**URL Params**
-
-|  Name | Required |  Type  | Description                                                                                                   |
-| ----: | :------: | :----: | ------------------------------------------------------------------------------------------------------------- |
-| `url` | required | string | url to RSS feed from where to fetch news. Currently limited to [SVT RSS](https://www.svt.se/nyheter/rss.xml). |
-
-**Response**
-
-To be added.
+| Param | Required | Type   | Description              |
+| ----- | -------- | ------ | ------------------------ |
+| `url` | yes      | string | URL-encoded RSS feed URL |
 
 ---
 
 ### GET /profile/{body}
 
-Returns profile information.
-
-**URL Params**
-
-|   Name | Required |  Type  | Description                                                                                                                                                       |
-| -----: | :------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `body` |   true   | string | **NOTE: This should be removed, is not used and is not implemented properly anyway** Refer to [api-functions.js:185](../wn-native/src/ext_utils/api-functions.js) |
-
-**Response**
-
-To be added.
+Returns profile information for the authenticated user.
 
 ---
 
@@ -45,94 +138,43 @@ To be added.
 
 Updates profile information.
 
-**URL Params**
-
-None
-
-**Data Params**
-
-|         Name | Required |  Type  | Description                                                                                                                                                                         |
-| -----------: | :------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|   `nickname` |   true   | string | Username, firstname(stored as given_name in AWS) and lastname(stored as family_name in AWS)                                                                                         |
-| `profilePic` |   true   | string | Outdated, but still required. Use https://ra.ac.ae/wp-content/uploads/2017/02/user-icon-placeholder.png or simply remove the field.                                                 |
-|   `imageKey` |   true   | string | Key to fetch user profile from AWS S3. Refer to [SettingsScreenLoggedIn.js:37](../wn-native/src/screens/SettingsScreenLoggedIn.js) for working example on how the imageKey is used. |
-|      `subId` |   true   | string | Link between user in DynamoDB and Cognito. Access via Amplify `Auth.currentUserInfo()`.                                                                                             |
-|      `email` |   true   | string | Also accessed via `Auth.currentUserInfo()`. Used to query email adresses in DynamoDB, currently has no other uses.                                                                  |
-
-**Response**
-
-To be added.
+| Field        | Required | Type   | Description                                    |
+| ------------ | -------- | ------ | ---------------------------------------------- |
+| `nickname`   | yes      | string | Username / display name                        |
+| `profilePic` | yes      | string | Profile picture URL                            |
+| `imageKey`   | yes      | string | S3 key for the user avatar                     |
+| `subId`      | yes      | string | Cognito sub ID (from `Auth.currentUserInfo()`) |
+| `email`      | yes      | string | User email                                     |
 
 ---
 
 ### GET /comments/{body}
 
-Returns profile information.
-
-**NOTE:** This needs revisiting. Refer to [CommentUtils.js:9](../wn-native/src/ext_utils/CommentUtils.js) to get a better understanding of how this works.
-
-**URL Params**
-
-|   Name | Required |  Type  | Description                                                                    |
-| -----: | :------: | :----: | ------------------------------------------------------------------------------ |
-| `body` |   true   | string | **Not implemented properly!** Currently expects article URL to fetch comments. |
-
-**Data Params**
-
-None
-
-**Response**
-
-To be added.
+Returns comments for an article. Expects an article URL as `body`.
 
 ---
 
 ### POST /comments
 
-Adds a comment & adds a notification to the user who recieved the reply(if it was a reply).
+Adds a comment (or reply) to an article.
 
-Refer to [CommentUtils.js:4](../wn-native/src/ext_utils/CommentUtils.js) to get a better understanding of how this works.
-
-**URL Params**
-
-None
-
-**Data Params**
-
-|          Name | Required |  Type  | Description                                                                                                                                                       |
-| ------------: | :------: | :----: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|         `msg` |   true   | string | The actual comment message.                                                                                                                                       |
-| `parentMsgId` |   true   | string | Comment ID of the comment which got replied to. If it is not a reply to a comment, `0` must be specified to indicate it's a root comment(in relation to article). |
-|         `url` |   true   | string | Article URL.                                                                                                                                                      |
-|      `rssUrl` |   true   | string | RSS URL. Currently limited to [SVT RSS](https://www.svt.se/nyheter/rss.xml).                                                                                      |
-
-**Response**
-
-To be added.
+| Field         | Required | Type   | Description                                    |
+| ------------- | -------- | ------ | ---------------------------------------------- |
+| `msg`         | yes      | string | Comment text                                   |
+| `parentMsgId` | yes      | string | Parent comment ID, or `0` for a root comment   |
+| `url`         | yes      | string | Article URL                                    |
+| `rssUrl`      | yes      | string | RSS feed URL                                   |
 
 ---
 
 ### PUT /comments
 
-Deletes a single comment.
-**NOTE:** Does not actually delete the row in the database. Instead replaces the fields that contain information to be deleted with `null` values. This is to not break the tree structure in the application.
+Soft-deletes a comment (nullifies fields to preserve tree structure).
 
-See [api-functions.js:216](../wn-native/src/ext_utils/api-functions.js) for usage.
-
-**URL Params**
-
-None
-
-**Data Params**
-
-|      Name | Required |  Type  |
-| --------: | :------: | :----: |
-|      `id` |   true   | string |
-| `sortKey` |   true   | string |
-
-**Response**
-
-To be added.
+| Field     | Required | Type   |
+| --------- | -------- | ------ |
+| `id`      | yes      | string |
+| `sortKey` | yes      | string |
 
 ---
 
@@ -140,118 +182,42 @@ To be added.
 
 Updates article feedback.
 
-**URL Params**
+| Param | Required | Type   | Description |
+| ----- | -------- | ------ | ----------- |
+| `url` | yes      | string | Article URL |
 
-|  Name | Required |  Type  | Description  |
-| ----: | :------: | :----: | ------------ |
-| `url` |   true   | string | Article URL. |
-
-**Data Params**
-
-|     Name | Required |  Type  | Description                                                           |
-| -------: | :------: | :----: | --------------------------------------------------------------------- |
-| `action` |   true   | string | Can be one of the following: `likes`, `dislikes`, `trust`, `distrust` |
-
-**Response**
-
-To be added.
+| Field    | Required | Type   | Description                                       |
+| -------- | -------- | ------ | ------------------------------------------------- |
+| `action` | yes      | string | One of: `likes`, `dislikes`, `trust`, `distrust`  |
 
 ---
 
 ### GET /smart/article/{url}
 
-Get article information. Used in combination with notifications & other functionality where user should be redirected to a specific article.
+Returns article metadata and feedback stats.
 
-**URL Params**
-
-|  Name | Required |  Type  | Description  |
-| ----: | :------: | :----: | ------------ |
-| `url` |   true   | string | Article URL. |
-
-**Data Params**
-
-None
-
-**Response**
-
-To be added.
+| Param | Required | Type   | Description |
+| ----- | -------- | ------ | ----------- |
+| `url` | yes      | string | Article URL |
 
 ---
 
-### GET smart/feedback/{url}
+### GET /smart/metadata/{url}
 
-**NOTE: Outdated, should be removed!** Gets article feedback.
+Returns Open Graph metadata for an article (title, image).
 
-**URL Params**
-
-|  Name | Required |  Type  | Description  |
-| ----: | :------: | :----: | ------------ |
-| `url` |   true   | string | Article URL. |
-
-**Data Params**
-
-None
-
-**Response**
-
-To be added.
+| Param | Required | Type   | Description |
+| ----- | -------- | ------ | ----------- |
+| `url` | yes      | string | Article URL |
 
 ---
 
-### GET smart/trending/comments
+### GET /smart/trending/comments
 
-Gets articles with activity(based on comments).
-See [get_trending_comments](./src/functions/get_trending_comments.js) for more info.
-
-**URL Params**
-
-None
-
-**Data Params**
-
-None
-
-**Response**
-
-To be added.
+Returns articles ranked by comment activity.
 
 ---
 
-### GET smart/trending/interest
+### GET /smart/trending/interest
 
-Gets articles with a specific like portion in relation to dislike(interest).
-See [get_trending_interesting](./src/functions/get_trending_interest.js) for more info on how the algorithm that filters/sorts interesting articles work.
-
-**URL Params**
-
-None
-
-**Data Params**
-
-None
-
-**Response**
-
-To be added.
-
----
-
-### GET smart/metadata/{url}
-
-Returns article metadata(mainly used for article image).
-
-**URL Params**
-
-|  Name | Required |  Type  | Description  |
-| ----: | :------: | :----: | ------------ |
-| `url` |   true   | string | Article URL. |
-
-**Data Params**
-
-None
-
-**Response**
-
-To be added.
-
----
+Returns articles ranked by like/dislike ratio (interest score).
