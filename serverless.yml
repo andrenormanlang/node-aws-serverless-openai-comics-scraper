@@ -132,7 +132,6 @@ functions:
           path: dispatch/{url}
           method: get
           cors: true
-          authorizer: aws_iam
 
   #
   # Set / get user profile
@@ -293,7 +292,6 @@ functions:
           path: smart/trending/comments
           method: get
           cors: true
-          authorizer: aws_iam
   delete_account:
     handler: src/functions/delete_account.main
     events:
@@ -309,7 +307,6 @@ functions:
           path: smart/trending/interest
           method: get
           cors: true
-          authorizer: aws_iam
   smart_get_metadata:
     handler: src/functions/get_metadata.main
     events:
@@ -317,7 +314,6 @@ functions:
           path: smart/metadata/{url}
           method: get
           cors: true
-          authorizer: aws_iam
   smart_update_profile:
     handler: src/functions/update_profile.main
     events:
@@ -357,7 +353,6 @@ functions:
           path: smart/article/{url}
           method: get
           cors: true
-          authorizer: aws_iam
   get_article_details:
     handler: src/functions/get_articledetails.main
     events:
@@ -365,7 +360,6 @@ functions:
           path: smart/articledetails/{url}
           method: get
           cors: true
-          authorizer: aws_iam
   smart_get_subjects:
     handler: src/functions/get_subjects.main
     events:
@@ -373,7 +367,6 @@ functions:
           path: smart/subjects
           method: get
           cors: true
-          authorizer: aws_iam
   smart_update_article_subjects:
     handler: src/functions/update_article_subjects.main
     events:
