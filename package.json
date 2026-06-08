@@ -1,7 +1,7 @@
 {
-  "name": "newsplitter-api",
+  "name": "retro-pop-dispatch",
   "version": "1.2.0",
-  "description": "A Node.js starter for the Serverless Framework with async/await and unit test support",
+  "description": "Comics news aggregator and community API for Retro Pop Comics",
   "main": "handler.js",
   "scripts": {
     "test": "jest"

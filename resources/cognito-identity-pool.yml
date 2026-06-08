@@ -72,7 +72,7 @@ Resources:
               - Effect: Allow
                 Action:
                   - lambda:InvokeFunction
-                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:newsplitter-api-*'
+                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:retro-pop-dispatch-*'
               - Effect: Allow
                 Action:
                   - s3:ListBucket

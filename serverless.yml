@@ -1,4 +1,4 @@
-service: newsplitter-api
+service: retro-pop-dispatch
 
 build:
   esbuild:
@@ -17,7 +17,7 @@ custom:
   stage: ${opt:stage, self:provider.stage}
   region: ${opt:region, self:provider.region}
 
-  tableName: ${self:custom.stage}-newsplitter
+  tableName: ${self:custom.stage}-retropop-dispatch
   snsTopicNamePrefix: ${self:custom.stage}-
   snsTopicArnPrefix: arn:aws:sns:${self:custom.region}:${aws:accountId}
 
@@ -39,7 +39,7 @@ provider:
   memorySize: 1024
 
   deploymentBucket:
-    name: newsplitter-serverless-deploys
+    name: retropop-dispatch-serverless-deploys
     serverSideEncryption: AES256
 
   environment:
@@ -53,8 +53,8 @@ provider:
     GPT_MODEL_SHORT: ${self:custom.gptModelShort}
     GPT_MODEL_LONG: ${self:custom.gptModelLong}
     GPT_TOKEN_THRESHOLD: ${self:custom.gptTokenThreshold}
-    openAiKey: '{{resolve:ssm:/newsplitter/openai-key}}'
-    EXPO_ACCESS_TOKEN: '{{resolve:ssm:/newsplitter/expo-access-token}}'
+    openAiKey: '{{resolve:ssm:/retropop-dispatch/openai-key}}'
+    EXPO_ACCESS_TOKEN: '{{resolve:ssm:/retropop-dispatch/expo-access-token}}'
 
   iam:
     role:
@@ -129,7 +129,7 @@ functions:
     handler: src/handlers/get.main
     events:
       - http:
-          path: newsplitter/{url}
+          path: dispatch/{url}
           method: get
           cors: true
           authorizer: aws_iam
@@ -556,7 +556,7 @@ functions:
     events:
       - stream:
           type: dynamodb
-          arn: !GetAtt newsplitterTable.StreamArn
+          arn: !GetAtt retroPopDispatchTable.StreamArn
           startingPosition: LATEST
 
   notif_add_comment_liked:
@@ -569,7 +569,7 @@ functions:
   send_push_comment_liked:
     handler: src/evthandlers/send_push_comment_generic.main
     environment:
-      pushText: gillar din kommentar
+      pushText: liked your comment
     events:
       - sns: ${self:custom.snsTopicNamePrefix}comment_liked_added
   notif_add_comment_disliked:
@@ -582,7 +582,7 @@ functions:
   send_push_comment_disliked:
     handler: src/evthandlers/send_push_comment_generic.main
     environment:
-      pushText: ogillar din kommentar
+      pushText: disliked your comment
     events:
       - sns: ${self:custom.snsTopicNamePrefix}comment_disliked_added
   notif_add_comment_reliable:
@@ -595,7 +595,7 @@ functions:
   send_push_comment_reliable:
     handler: src/evthandlers/send_push_comment_generic.main
     environment:
-      pushText: tycker din kommentar är trovärdig
+      pushText: found your comment credible
     events:
       - sns: ${self:custom.snsTopicNamePrefix}comment_marked_reliable_added
   notif_add_comment_unreliable:
@@ -608,7 +608,7 @@ functions:
   send_push_comment_unreliable:
     handler: src/evthandlers/send_push_comment_generic.main
     environment:
-      pushText: ser din kommentar som tvivelaktig
+      pushText: marked your comment as questionable
     events:
       - sns: ${self:custom.snsTopicNamePrefix}comment_marked_unreliable_added
   notif_add_comment_supported:
@@ -621,7 +621,7 @@ functions:
   send_push_comment_supported:
     handler: src/evthandlers/send_push_comment_generic.main
     environment:
-      pushText: använde din kommentar som ett belägg
+      pushText: used your comment as supporting evidence
     events:
       - sns: ${self:custom.snsTopicNamePrefix}comment_supported_added
 

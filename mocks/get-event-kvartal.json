@@ -1,6 +1,6 @@
 {
   "pathParameters": {
-    "url": "%7B%22rssUrl%22%3A%22https%3A%2F%2Fwww.kvartal.se%2Ffeed%22%2C%22dummy%22%3A%22mock%20newsplitter%22%7D"
+    "url": "%7B%22rssUrl%22%3A%22https%3A%2F%2Fwww.cbr.com%2Ffeed%2F%22%2C%22dummy%22%3A%22mock%20retropop-dispatch%22%7D"
   },
   "requestContext": {
     "identity": {

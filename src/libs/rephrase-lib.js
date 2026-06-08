@@ -6,55 +6,54 @@ import * as dynamoDbLib from "./dynamodb-lib";
 
 const DEFAULT_PROMPTS = {
   title: `
-Du får en rubrik till en nyhetsartikel.
-Skriv om rubriken på naturlig svenska.
+You are given a headline from a comics or pop-culture news article.
+Rewrite the headline in clear, natural English.
 
-Regler:
-- Behåll samma innebörd.
-- Gör den saklig och tydlig.
-- Ingen radbrytning.
-- Max 90 tecken.
-- Returnera endast den omskrivna rubriken.
+Rules:
+- Keep the same meaning.
+- Make it concise and factual.
+- No line breaks.
+- Max 90 characters.
+- Return only the rewritten headline.
 `,
   description: `
-Du får en kort beskrivning (ingress) till en nyhetsartikel.
-Skriv om beskrivningen på naturlig svenska.
+You are given a short description (lead paragraph) from a comics or pop-culture news article.
+Rewrite the description in clear, natural English.
 
-Regler:
-- Behåll all innebörd och sakinformation.
-- Gör texten saklig och tydlig.
-- Ingen radbrytning.
-- Returnera endast den omskrivna beskrivningen.
+Rules:
+- Keep all meaning and factual content.
+- Make it clear and informative.
+- No line breaks.
+- Return only the rewritten description.
 `,
   body: `
-Du får text som i huvudsak kommer från en nyhetsartikel, men den kan innehålla störningar från scraping.
+You are given text scraped from a comics or pop-culture news article. It may contain noise from scraping.
 
-Texten kan innehålla sådant som:
-- bildtexter
-- fotokrediter
-- länkar
-- uppmaningar som "Läs mer", "Klicka här", "Prenumerera", "Tipsa oss"
-- sociala medier-referenser
-- navigations- eller gränssnittstext
-- text som "Öppna bild i helskärm"
-- dubblerade eller avhuggna rader
+The text may include:
+- image captions
+- photo credits
+- links
+- calls to action like "Read more", "Click here", "Subscribe"
+- social media references
+- navigation or interface text
+- duplicated or truncated lines
 
-Din uppgift är att skriva om endast den egentliga artikeltexten till korrekt, naturlig och saklig svenska.
+Your task is to rewrite only the actual article text in correct, natural, and informative English.
 
-Regler:
-- Behåll all innebörd, fakta och detaljer och sakinformation.
-- Alla delar av artikelns innehåll ska finnas kvar i omskrivningen.
-- Det är inte tillåtet att utelämna delar av artikelns innehåll.
-- Detta är en omskrivning, inte en sammanfattning.
-- Utelämna inte fakta, citat, händelser, vittnesmål eller förklaringar som finns i originaltexten.
-- Citat skall vara ordagrant återgivna.
-- Ta endast bort text som tydligt är scraping-störningar (t.ex. bildtexter, fotokrediter, länkar, CTA:er).
-- Efter att scraping-störningar tagits bort ska textens längd inte variera mer än cirka 20% jämfört med originalets brödtext.
-- Skriv i neutralt nyhetsspråk.
-- Dela upp texten i tydliga stycken.
-- Sätt blankrad mellan styckena.
-- Slå ihop felaktiga radbrytningar mitt i meningar.
-- Returnera endast den omskrivna artikeltexten.
+Rules:
+- Keep all meaning, facts, and details.
+- All parts of the article content must be preserved in the rewrite.
+- Do not omit any content.
+- This is a rewrite, not a summary.
+- Do not omit facts, quotes, events, or explanations from the original.
+- Quotes must be reproduced verbatim.
+- Only remove text that is clearly scraping noise (e.g. image captions, photo credits, links, CTAs).
+- After removing scraping noise, the text length should not vary by more than approximately 20% compared to the original body text.
+- Write in neutral news language.
+- Divide the text into clear paragraphs.
+- Add a blank line between paragraphs.
+- Merge incorrect line breaks in the middle of sentences.
+- Return only the rewritten article text.
 `,
 };
 
@@ -119,40 +118,24 @@ function normalizeSubjectEntry(entry) {
 }
 
 const SUBJECT_STOP_WORDS = new Set([
-  "och",
-  "att",
-  "det",
-  "den",
-  "detta",
-  "som",
+  "the",
+  "and",
   "for",
-  "med",
-  "till",
-  "fran",
-  "under",
-  "over",
-  "sveriges",
-  "hantering",
-  "nuvarande",
-  "president",
+  "with",
+  "from",
+  "this",
+  "that",
+  "are",
+  "was",
+  "has",
+  "new",
+  "more",
+  "about",
+  "comics",
+  "comic",
 ]);
 
-const SUBJECT_KEYWORD_OVERRIDES = {
-  57: ["nato", "forsvarsallians"],
-  62: ["polis", "polisen", "poliser"],
-  66: ["sjukvard", "vard", "sjukhus", "patient", "patienter"],
-  81: ["forskning", "vetenskap", "forskare", "studie"],
-  85: ["vald", "valdsbrott", "misshandel", "skjutning", "mord"],
-  100: ["brott", "brottslighet", "atal", "dom", "domstol", "kriminell"],
-  103: ["donald trump", "trump"],
-  114: ["forenta nationerna", "fn"],
-  132: ["joe biden", "biden"],
-  163: ["sexualbrott", "valdtakt", "sexbrott", "sex trafficking", "minderarig"],
-  188: ["ukraina", "ukrainas", "zelenskyj", "volodymyr zelenskyj"],
-  197: ["israel", "netanyahu", "gaza", "hamas"],
-  199: ["kina", "kinesisk", "kinesiska"],
-  204: ["ryssland", "rysk", "ryska", "putin", "vladimir putin"],
-};
+const SUBJECT_KEYWORD_OVERRIDES = {};
 
 function normalizeForSubjectMatching(text) {
   return String(text || "")
@@ -252,11 +235,11 @@ async function requestSubjectClassification({
   temperature,
   forceChoice = false,
 }) {
-  const userContent = `Här är en nyhetsartikel:\n\n${articleText}\n\nÄmnen att välja mellan:\n${topicsText}\n\nInstruktion: Välj det ämne som bäst passar artikelns huvudinnehåll. ${
+  const userContent = `Here is a comics or pop-culture news article:\n\n${articleText}\n\nSubjects to choose from:\n${topicsText}\n\nInstruction: Choose the subject that best matches the article's main content. ${
     forceChoice
-      ? "Du måste välja ett av ämnes-id:n i listan. Returnera aldrig 0."
-      : "Välj alltid närmaste ämne om texten går att förstå. Returnera 0 endast om artikeltexten är tom, trasig eller helt omöjlig att klassificera."
-  } Returnera JSON med subject_id, confidence och reason.`;
+      ? "You must choose one of the subject IDs in the list. Never return 0."
+      : "Always choose the closest subject if the text is understandable. Return 0 only if the article text is empty, broken, or completely impossible to classify."
+  } Return JSON with subject_id, confidence and reason.`;
 
   return fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
@@ -270,7 +253,7 @@ async function requestSubjectClassification({
         {
           role: "system",
           content:
-            "Du kopplar svenska nyhetsartiklar till befintliga ämnen. Svara endast med giltig JSON enligt schemat.",
+            "You match comics and pop-culture news articles to existing subjects. Reply only with valid JSON according to the schema.",
         },
         { role: "user", content: userContent },
       ],
