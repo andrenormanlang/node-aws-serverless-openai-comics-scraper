@@ -3,7 +3,10 @@ import * as dynamoDbLib from "./dynamodb-lib";
 
 const ARTICLE_SORT_KEY = "articles";
 const USER_ARTICLE_PREFIX = "user-article#";
-const EIGHT_DAYS_SECONDS = defs.ARTICLE_LEGACY_THRESHOLD_DAYS * 24 * 60 * 60;
+const LEGACY_THRESHOLD_DAYS = Number.isFinite(defs.ARTICLE_LEGACY_THRESHOLD_DAYS)
+  ? defs.ARTICLE_LEGACY_THRESHOLD_DAYS
+  : 8;
+const EIGHT_DAYS_SECONDS = LEGACY_THRESHOLD_DAYS * 24 * 60 * 60;
 
 const COUNTER_BY_INTERACTION = {
   scrollBy: "scrollByCount",
@@ -44,7 +47,7 @@ async function getArticleItem(articleId) {
   };
 
   const result = await dynamoDbLib.call("get", params);
-  return result.Item;
+  return result?.Item;
 }
 
 function isLegacyOrOldArticle(articleItem) {
@@ -106,13 +109,31 @@ async function createUserArticleAndIncrementCounter({
 }
 
 async function getExistingUserArticle(userId, articleId) {
+  return getUserArticleItem(userId, articleId);
+}
+
+async function updateExistingUserArticle(userId, articleId, updateParams) {
+  const existingUserArticle = await getExistingUserArticle(userId, articleId);
+  if (!existingUserArticle) {
+    return false;
+  }
+
+  await dynamoDbLib.call("update", {
+    TableName: defs.WN_STR_KEY_TABLE,
+    Key: buildUserArticleKey(userId, articleId),
+    ...updateParams,
+  });
+  return true;
+}
+
+export async function getUserArticleItem(userId, articleId) {
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
     Key: buildUserArticleKey(userId, articleId),
   };
 
   const result = await dynamoDbLib.call("get", params);
-  return result.Item;
+  return result?.Item;
 }
 
 export async function getOrCreateUserArticle({
@@ -211,6 +232,137 @@ async function transitionInteraction({
   await dynamoDbLib.call("transactWrite", params);
 }
 
+async function updateUserArticleCounter({
+  userId,
+  articleId,
+  attributeName,
+  delta,
+}) {
+  const isIncrement = delta > 0;
+  const params = {
+    TableName: defs.WN_STR_KEY_TABLE,
+    Key: buildUserArticleKey(userId, articleId),
+    UpdateExpression: isIncrement
+      ? "SET #attribute = if_not_exists(#attribute, :zero) + :delta"
+      : "SET #attribute = #attribute - :delta",
+    ConditionExpression: isIncrement
+      ? "attribute_exists(id) AND attribute_exists(sortKey)"
+      : "attribute_exists(id) AND attribute_exists(sortKey) AND attribute_exists(#attribute) AND #attribute >= :delta",
+    ExpressionAttributeNames: {
+      "#attribute": attributeName,
+    },
+    ExpressionAttributeValues: {
+      ":delta": Math.abs(delta),
+      ...(isIncrement ? { ":zero": 0 } : {}),
+    },
+    ReturnValues: "UPDATED_NEW",
+  };
+
+  try {
+    await dynamoDbLib.call("update", params);
+    return true;
+  } catch (error) {
+    if (error?.code !== "ConditionalCheckFailedException") {
+      throw error;
+    }
+
+    if (isIncrement) {
+      const created = await getOrCreateUserArticle({
+        userId,
+        articleId,
+        interaction: "scrollBy",
+      });
+
+      if (created.resultType === "oldArticle") {
+        return false;
+      }
+
+      const existing = await getExistingUserArticle(userId, articleId);
+      if (!existing) {
+        return false;
+      }
+    } else {
+      return false;
+    }
+  }
+
+  await dynamoDbLib.call("update", params);
+  return true;
+}
+
+export async function addUserArticleSupport({ userId, articleId }) {
+  return updateExistingUserArticle(userId, articleId, {
+    UpdateExpression:
+      "SET #attribute = if_not_exists(#attribute, :zero) + :one",
+    ExpressionAttributeNames: {
+      "#attribute": "supports",
+    },
+    ExpressionAttributeValues: {
+      ":zero": 0,
+      ":one": 1,
+    },
+    ConditionExpression:
+      "attribute_exists(id) AND attribute_exists(sortKey)",
+  });
+}
+
+export async function removeUserArticleSupport({ userId, articleId }) {
+  return updateExistingUserArticle(userId, articleId, {
+    UpdateExpression:
+      "SET #attribute = #attribute - :one",
+    ConditionExpression:
+      "attribute_exists(id) AND attribute_exists(sortKey) AND attribute_exists(#attribute) AND #attribute >= :one",
+    ExpressionAttributeNames: {
+      "#attribute": "supports",
+    },
+    ExpressionAttributeValues: {
+      ":one": 1,
+    },
+  });
+}
+
+export async function setUserArticleUnreliable({ userId, articleId, value }) {
+  return updateExistingUserArticle(userId, articleId, {
+    UpdateExpression: "SET #attribute = :value",
+    ExpressionAttributeNames: {
+      "#attribute": "unreliable",
+    },
+    ExpressionAttributeValues: {
+      ":value": Boolean(value),
+    },
+  });
+}
+
+export async function setUserArticleSavedArticle({ userId, articleId, value }) {
+  return updateExistingUserArticle(userId, articleId, {
+    UpdateExpression: "SET #attribute = :value",
+    ExpressionAttributeNames: {
+      "#attribute": "savedArticle",
+    },
+    ExpressionAttributeValues: {
+      ":value": Boolean(value),
+    },
+  });
+}
+
+export async function addUserArticleComment({ userId, articleId }) {
+  return updateUserArticleCounter({
+    userId,
+    articleId,
+    attributeName: "comments",
+    delta: 1,
+  });
+}
+
+export async function removeUserArticleComment({ userId, articleId }) {
+  return updateUserArticleCounter({
+    userId,
+    articleId,
+    attributeName: "comments",
+    delta: -1,
+  });
+}
+
 export async function registerScrollByEvent({ userId, articleId }) {
   const genericResult = await getOrCreateUserArticle({
     userId,
@@ -304,10 +456,7 @@ export async function registerInterestVoteEvent({
     return `opened to ${voteType}`;
   }
 
-  if (
-    (current === "interest" || current === "uninterest") &&
-    current !== voteType
-  ) {
+  if ((current === "interest" || current === "uninterest") && current !== voteType) {
     await transitionInteraction({
       userId,
       articleId,

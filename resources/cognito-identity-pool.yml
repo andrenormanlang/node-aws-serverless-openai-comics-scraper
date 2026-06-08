@@ -1,20 +1,15 @@
 Resources:
-  # The federated identity for our user pool to auth with
   CognitoIdentityPool:
     Type: AWS::Cognito::IdentityPool
     Properties:
-      # Generate a name based on the stage
       IdentityPoolName: ${self:custom.stage}IdentityPool
-      # Don't allow unathenticated users
       AllowUnauthenticatedIdentities: false
-      # Link to our User Pool
       CognitoIdentityProviders:
         - ClientId:
             Ref: CognitoUserPoolClient
           ProviderName:
             Fn::GetAtt: [ "CognitoUserPool", "ProviderName" ]
-            
-  # IAM roles
+
   CognitoIdentityPoolRoles:
     Type: AWS::Cognito::IdentityPoolRoleAttachment
     Properties:
@@ -23,8 +18,7 @@ Resources:
       Roles:
         authenticated:
           Fn::GetAtt: [CognitoAuthRole, Arn]
-          
-  # IAM role used for authenticated users
+
   CognitoAuthRole:
     Type: AWS::IAM::Role
     Properties:
@@ -32,11 +26,10 @@ Resources:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Effect: 'Allow'
+          - Effect: Allow
             Principal:
-              Federated: 'cognito-identity.amazonaws.com'
-            Action:
-              - 'sts:AssumeRoleWithWebIdentity'
+              Federated: cognito-identity.amazonaws.com
+            Action: sts:AssumeRoleWithWebIdentity
             Condition:
               StringEquals:
                 'cognito-identity.amazonaws.com:aud':
@@ -44,21 +37,19 @@ Resources:
               'ForAnyValue:StringLike':
                 'cognito-identity.amazonaws.com:amr': authenticated
       Policies:
-        - PolicyName: 'CognitoAuthorizedPolicy'
+        - PolicyName: CognitoAuthorizedPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Effect: 'Allow'
+              - Effect: Allow
                 Action:
-                  - 'mobileanalytics:PutEvents'
-                  - 'cognito-sync:*'
-                  - 'cognito-identity:*'
+                  - mobileanalytics:PutEvents
+                  - cognito-sync:*
+                  - cognito-identity:*
                 Resource: '*'
-              
-              # Allow users to invoke our API
-              - Effect: 'Allow'
+              - Effect: Allow
                 Action:
-                  - 'execute-api:Invoke'
+                  - execute-api:Invoke
                 Resource:
                   Fn::Join:
                     - ''
@@ -70,8 +61,21 @@ Resources:
                       - ':'
                       - Ref: ApiGatewayRestApi
                       - '/*'
-  
-# Print out the Id of the Identity Pool that is created
+              - Effect: Allow
+                Action:
+                  - lambda:InvokeFunction
+                Resource: !Sub 'arn:aws:lambda:${AWS::Region}:${AWS::AccountId}:function:newsplitter-api-*'
+              - Effect: Allow
+                Action:
+                  - s3:ListBucket
+                Resource: !GetAtt AvatarBucket.Arn
+              - Effect: Allow
+                Action:
+                  - s3:GetObject
+                  - s3:PutObject
+                  - s3:DeleteObject
+                Resource: !Sub '${AvatarBucket.Arn}/*'
+
 Outputs:
   IdentityPoolId:
     Value:

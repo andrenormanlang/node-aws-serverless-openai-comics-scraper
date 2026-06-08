@@ -1,7 +1,7 @@
 {
     "UserPool": {
         "Id": "eu-central-1_TSBMlepoH",
-        "Name": "wingednews-user-pool",
+        "Name": "newsplitter-user-pool",
         "Policies": {
             "PasswordPolicy": {
                 "MinimumLength": 8,
@@ -250,7 +250,7 @@
             "EmailSendingAccount": "COGNITO_DEFAULT"
         },
         "UserPoolTags": {},
-        "Domain": "wingednews",
+        "Domain": "newsplitter",
         "AdminCreateUserConfig": {
             "AllowAdminCreateUserOnly": false,
             "UnusedAccountValidityDays": 7,

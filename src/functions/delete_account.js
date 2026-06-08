@@ -1,10 +1,11 @@
+import { CognitoIdentityProviderClient, AdminDeleteUserCommand } from "@aws-sdk/client-cognito-identity-provider";
 import handler from "../libs/handler-lib";
 import * as dynamoDbLib from "../libs/dynamodb-lib";
 import * as defs from "../libs/defs";
 
+const cognito = new CognitoIdentityProviderClient({});
+
 export const main = handler(async (event, context) => {
-  const AWS = require("aws-sdk");
-  const cognito = new AWS.CognitoIdentityServiceProvider();
   let userId = event.requestContext.identity.cognitoIdentityId;
   const body = JSON.parse(event.body);
   const userPoolID = body.user_pool_id || defs.user_pool_id;
@@ -37,14 +38,13 @@ export const main = handler(async (event, context) => {
       Username: userToDelete.Item.subId,
     };
 
-    cognito.adminDeleteUser(deleteParams, (err, data) => {
-      if (err) {
-        console.log("something weird happened!!!!", err);
-        return { message: "something weird happened:", err };
-      } else {
-        console.log("account should be deleted,", data);
-      }
-    });
+    try {
+      const data = await cognito.send(new AdminDeleteUserCommand(deleteParams));
+      console.log("account should be deleted,", data);
+    } catch (err) {
+      console.log("something weird happened!!!!", err);
+      return { message: "something weird happened:", err };
+    }
 
     userId = body.userId;
   }

@@ -1,15 +1,12 @@
 import * as dynamoDbLib from "../libs/dynamodb-lib";
 import * as defs from "../libs/defs";
 import fetch from "node-fetch";
-import { JSDOM, VirtualConsole } from "jsdom";
+import { load as cheerioLoad } from "cheerio";
 import slugify from "slugify";
 import {
   rephrase_data_from_openai,
   classify_subject_from_openai,
 } from "../libs/rephrase-lib";
-
-const silentVirtualConsole = new VirtualConsole();
-silentVirtualConsole.sendTo(console, { omitJSDOMErrors: true });
 
 // Canonicalize URLs to avoid duplicate processing caused by tracking params.
 const TRACKING_QUERY_PARAMS = [
@@ -181,48 +178,49 @@ function get_selectors_for_url(url) {
   }
 }
 
+// cheerio nodes use lowercase tag names (unlike the DOM's uppercase tagName)
 const BLOCK_TAGS = new Set([
-  "P",
-  "DIV",
-  "ARTICLE",
-  "SECTION",
-  "HEADER",
-  "FOOTER",
-  "H1",
-  "H2",
-  "H3",
-  "H4",
-  "H5",
-  "H6",
-  "LI",
-  "TR",
-  "BLOCKQUOTE",
-  "BR",
+  "p",
+  "div",
+  "article",
+  "section",
+  "header",
+  "footer",
+  "h1",
+  "h2",
+  "h3",
+  "h4",
+  "h5",
+  "h6",
+  "li",
+  "tr",
+  "blockquote",
+  "br",
 ]);
 
 function extract_text_with_newlines(node) {
   let text = "";
   function walk(el) {
-    if (el.nodeType === 3) {
-      text += el.textContent;
-    } else if (el.nodeType === 1) {
-      if (BLOCK_TAGS.has(el.tagName)) text += "\n";
-      for (const child of el.childNodes) walk(child);
-      if (BLOCK_TAGS.has(el.tagName)) text += "\n";
+    if (el.type === "text") {
+      text += el.data;
+    } else if (el.type === "tag") {
+      if (BLOCK_TAGS.has(el.name)) text += "\n";
+      for (const child of el.children || []) walk(child);
+      if (BLOCK_TAGS.has(el.name)) text += "\n";
     }
   }
   walk(node);
   return text;
 }
 
-function extract_article_body(document, url) {
+function extract_article_body($, url) {
   for (const selector of get_selectors_for_url(url)) {
-    const node = document.querySelector(selector);
-    if (!node) {
+    const el = $(selector).first().get(0);
+    if (!el) {
       continue;
     }
 
-    const candidate = extract_text_with_newlines(node).trim();
+    const candidate = extract_text_with_newlines(el).trim();
     if (candidate.length > 200) {
       return candidate;
     }
@@ -231,22 +229,18 @@ function extract_article_body(document, url) {
   return "";
 }
 
-function get_og_type(document) {
-  const ogType =
-    document
-      .querySelector('meta[property="og:type"]')
-      ?.getAttribute("content") || "";
+function get_og_type($) {
+  const ogType = $('meta[property="og:type"]').attr("content") || "";
   return normalize_for_matching(ogType).trim();
 }
 
-function has_login_form(document) {
-  if (document.querySelector('input[type="password"]')) {
+function has_login_form($) {
+  if ($('input[type="password"]').length) {
     return true;
   }
 
-  const forms = Array.from(document.querySelectorAll("form"));
-  return forms.some((form) => {
-    const action = normalize_for_matching(form.getAttribute("action") || "");
+  return $("form").toArray().some((form) => {
+    const action = normalize_for_matching($(form).attr("action") || "");
     return (
       action.includes("login") ||
       action.includes("logga") ||
@@ -255,18 +249,13 @@ function has_login_form(document) {
   });
 }
 
-function has_noindex_meta(document) {
-  const robots =
-    document.querySelector('meta[name="robots"]')?.getAttribute("content") ||
-    "";
-  const normalizedRobots = normalize_for_matching(robots);
-  return normalizedRobots.includes("noindex");
+function has_noindex_meta($) {
+  const robots = $('meta[name="robots"]').attr("content") || "";
+  return normalize_for_matching(robots).includes("noindex");
 }
 
-function has_inaccessible_ld_json(document) {
-  const ldJsonScripts = Array.from(
-    document.querySelectorAll('script[type="application/ld+json"]')
-  );
+function has_inaccessible_ld_json($) {
+  const ldJsonScripts = $('script[type="application/ld+json"]').toArray();
 
   const inspectEntry = (entry) => {
     if (!entry) {
@@ -295,8 +284,8 @@ function has_inaccessible_ld_json(document) {
     return false;
   };
 
-  for (const script of ldJsonScripts) {
-    const rawJson = (script.textContent || "").trim();
+  for (const el of ldJsonScripts) {
+    const rawJson = ($(el).html() || "").trim();
     if (!rawJson) {
       continue;
     }
@@ -314,14 +303,12 @@ function has_inaccessible_ld_json(document) {
   return false;
 }
 
-function is_likely_non_article_page(document, text, sourceUrl = "") {
-  const title = normalize_for_matching(
-    (document.querySelector("title")?.textContent || "").trim()
-  );
+function is_likely_non_article_page($, text, sourceUrl = "") {
+  const title = normalize_for_matching(($("title").text() || "").trim());
 
   // NEW: Grab the meta description to catch "direktflöde" (live feed) signals
   const description = normalize_for_matching(
-    (document.querySelector('meta[name="description"]')?.content || "").trim()
+    ($('meta[name="description"]').attr("content") || "").trim()
   );
 
   const body = normalize_for_matching(text);
@@ -344,10 +331,10 @@ function is_likely_non_article_page(document, text, sourceUrl = "") {
     (x) => title.includes(x) || description.includes(x)
   );
 
-  const hasStructuredPaywallSignal = has_inaccessible_ld_json(document);
-  const ogType = get_og_type(document);
-  const hasLoginForm = has_login_form(document);
-  const hasNoIndex = has_noindex_meta(document);
+  const hasStructuredPaywallSignal = has_inaccessible_ld_json($);
+  const ogType = get_og_type($);
+  const hasLoginForm = has_login_form($);
+  const hasNoIndex = has_noindex_meta($);
   const hasTitlePaywall = PAYWALL_PHRASES_TITLE.some((x) => title.includes(x));
   const hasBodyPaywallCopy = PAYWALL_PHRASES_BODY.some((x) => body.includes(x));
 
@@ -505,26 +492,6 @@ async function fetch_data_from_ai(data) {
           console.warn("Subject classification failed for", item.id, err);
         }
 
-        // Attempt to classify subject via OpenAI and attach AI-assigned subject
-        try {
-          const autoSubjectId = await classify_subject_from_openai(
-            orgBody,
-            0.1
-          );
-          const hasExplicitSubjects =
-            Array.isArray(item.subjects) && item.subjects.length > 0;
-          if (
-            !hasExplicitSubjects &&
-            Number.isFinite(autoSubjectId) &&
-            autoSubjectId > 0
-          ) {
-            item.subjects = [{ id: Number(autoSubjectId), users: ["AI"] }];
-            console.log("Assigned AI subject", autoSubjectId, "for", item.id);
-          }
-        } catch (err) {
-          console.warn("Subject classification failed for", item.id, err);
-        }
-
         await save_data_in_dynamoDb(item, {
           rephrasedTitle,
           slug,
@@ -594,10 +561,9 @@ async function get_article_data(url) {
     }
 
     const html = await response.text();
-    const dom = new JSDOM(html, { virtualConsole: silentVirtualConsole });
-    const document = dom.window.document;
+    const $ = cheerioLoad(html);
 
-    const summary = extract_article_body(document, canonicalUrl);
+    const summary = extract_article_body($, canonicalUrl);
     if (!summary) {
       console.log("Url Item not scrapped: " + canonicalUrl);
       return "";
@@ -618,7 +584,7 @@ async function get_article_data(url) {
       return "";
     }
 
-    if (is_likely_non_article_page(document, filterSummary, canonicalUrl)) {
+    if (is_likely_non_article_page($, filterSummary, canonicalUrl)) {
       console.log("Likely non-article page skipped: " + canonicalUrl);
       return "";
     }
