@@ -7,7 +7,7 @@ import { success, failure } from "../libs/response-lib";
 const LOCAL_DEBUG = false;
 
 export async function main(event, context) {
-  const userId = event.requestContext.identity.cognitoIdentityId;
+  const userId = event.requestContext?.identity?.cognitoIdentityId ?? null;
 
   let pathParamData;
   // TODO: Rename 'url' to something else, it's actually a data chunk now with more than just a url (but this requires reploying the API definition)

@@ -6,8 +6,9 @@ export const main = handler(async (event, context) => {
   const currentDate = parseInt(new Date().getTime() / 1000);
   const day = 86400;
   const endDate = currentDate - 7 * day;
-  const userId = event.requestContext.identity.cognitoIdentityId;
-  const data = event.queryStringParameters;
+  const userId = event.requestContext?.identity?.cognitoIdentityId ?? null;
+  const data = event.queryStringParameters ?? {};
+  if (!data.sortKey) return [];
   console.log("SORTKEY FOR EVERY COMMENT", data.sortKey);
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
