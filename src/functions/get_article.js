@@ -3,14 +3,14 @@ import * as defs from "../libs/defs";
 import handler from "../libs/handler-lib";
 
 export const main = handler(async (event, context) => {
-  const userId = event.requestContext.identity.cognitoIdentityId;
+  const userId = event.requestContext?.identity?.cognitoIdentityId ?? null;
   const q = {
     url: decodeURIComponent(event.pathParameters.url),
   };
   console.log(event);
-  const data = event.queryStringParameters;
+  const data = event.queryStringParameters ?? {};
   console.log("koko: ", data);
-  if (!userId || !q.url) return;
+  if (!q.url || !data.sortKey) return {};
 
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
