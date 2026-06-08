@@ -256,7 +256,7 @@ export async function main(event, context) {
     // send push notification to replied user
     let recipientProfileData = await dynamoDbLib.getUserProfileData(
       data.parentUserId,
-      // "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3"
+      // "eu-north-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3"
     );
     console.log("======recipientProfileData=======", recipientProfileData);
 
@@ -277,7 +277,7 @@ export async function main(event, context) {
         //  expTokenArr.push(recipientProfileData.expoTokens)
 
         //end
-        // "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3",
+        // "eu-north-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3",
         // "ExponentPushToken[BYVtnxPkfmFtoJ_WbOLrcJ]",
         let messageBody = "";
 
@@ -292,7 +292,7 @@ export async function main(event, context) {
           data.parentUserId,
           // expTokenArr,
           recipientProfileData.expoTokens,
-          //     "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3",
+          //     "eu-north-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3",
           // ["ExponentPushToken[aYa45gOFhFU4xh2g4OvLyJ]"],
           messageBody,
         );

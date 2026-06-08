@@ -5,7 +5,7 @@ import handler from "../libs/handler-lib";
 // const AWS = require("aws-sdk");
 
 // Configure AWS SDK to use the specified region
-// AWS.config.update({ region: "eu-central-1" });
+// AWS.config.update({ region: "eu-north-1" });
 
 // Function to fetch data from a DynamoDB table using a provided id
 const fetchDataFromDynamoDb = async function (slug) {
