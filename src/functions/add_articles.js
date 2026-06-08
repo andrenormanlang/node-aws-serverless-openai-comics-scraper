@@ -7,22 +7,20 @@ import * as defs from "../libs/defs";
 // from the scraping lambda, using only RSS-available fields)
 // ─────────────────────────────────────────────
 
-// Blocked URL patterns — live feeds, direkt-posts and other non-article pages
+// Blocked URL patterns — live feeds and other non-article pages
 const BLOCKED_URL_PATTERNS = [
-  /\/expressen-direkt\//i,
-  /\/folj-direktrapporten\//i,
-  /\/direkt\//i,
-  /\/direktrapport\//i,
-  /\/liverapport\//i,
-  /\/live\//i,
+  /\/live-blog\//i,
+  /\/liveblog\//i,
+  /\/live-updates\//i,
+  /\/breaking-news\//i,
 ];
 
 // Mirrors liveFeedBlockers in scraping lambda
-// Note: normalized (ö → o, å → a, ä → a) to match normalizeForMatching output
 const LIVE_FEED_KEYWORDS = [
-  "senaste nytt i korthet",
-  "direktflode",
-  "senaste nytt",
+  "live blog",
+  "live feed",
+  "live updates",
+  "live coverage",
 ];
 
 // Mirrors titleOnlyBlockers in scraping lambda
@@ -30,13 +28,13 @@ const TITLE_BLOCKERS = ["error", "404", "forbidden", "access denied"];
 
 // Mirrors PAYWALL_PHRASES_TITLE in scraping lambda
 const PAYWALL_TITLE_PHRASES = [
-  "las gratis i",
-  "las upp alla artiklar",
-  "prenumerera for att lasa",
+  "subscribe to read",
+  "members only",
+  "premium article",
 ];
 
 // Mirrors accessBlockers in scraping lambda
-const ACCESS_BLOCKERS = ["logga in", "prenumerera for att lasa"];
+const ACCESS_BLOCKERS = ["log in to read", "subscribe to read"];
 
 // Mirrors normalize_for_matching in scraping lambda
 function normalizeForMatching(text) {
@@ -380,17 +378,17 @@ async function queryMetaDataForSource(rssUrl) {
 export async function main() {
   console.log("adding articles");
   let rssUrls = [
-    "https://www.svt.se/nyheter/rss.xml",
-    "http://www.dn.se/nyheter/m/rss/",
-    "https://feeds.expressen.se/nyheter/",
-    "https://www.forskning.se/feed/",
-    "https://www.dagensarena.se/feed/da",
-    "http://www.europaportalen.se/rss/nyheter",
-    "http://www.riktpunkt.nu/feed/",
-    "https://kvartal.se/feed/",
-    "http://www.svt.se/nyheter/varlden/rss.xml",
-    "https://morgonposten.se/feed",
-    "https://www.newsplitter.se/feed/",
+    "https://www.cbr.com/feed/",
+    "https://bleedingcool.com/feed/",
+    "https://www.comicsbeat.com/feed/",
+    "https://icv2.com/articles/news/rss.xml",
+    "https://aiptcomics.com/feed/",
+    "https://www.multiversitycomics.com/feed/",
+    "https://dccomicsnews.com/feed/",
+    "https://www.gamesradar.com/comics/rss/",
+    "https://www.superherohype.com/feed/",
+    "https://www.comicbookherald.com/feed/",
+    "https://comicbookroundup.com/feed/rss2/",
   ];
   console.log({ rssUrls });
 

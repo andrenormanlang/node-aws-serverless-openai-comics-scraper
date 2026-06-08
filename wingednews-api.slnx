@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="newsplitter-api.esproj">
+  <Project Path="retro-pop-dispatch-api.esproj">
     <Build />
     <Deploy />
   </Project>

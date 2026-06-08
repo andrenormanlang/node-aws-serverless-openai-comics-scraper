@@ -1,7 +1,7 @@
 {
     "UserPool": {
         "Id": "eu-north-1_TSBMlepoH",
-        "Name": "newsplitter-user-pool",
+        "Name": "retro-pop-dispatch-user-pool",
         "Policies": {
             "PasswordPolicy": {
                 "MinimumLength": 8,
@@ -250,7 +250,7 @@
             "EmailSendingAccount": "COGNITO_DEFAULT"
         },
         "UserPoolTags": {},
-        "Domain": "newsplitter",
+        "Domain": "retro-pop-dispatch",
         "AdminCreateUserConfig": {
             "AllowAdminCreateUserOnly": false,
             "UnusedAccountValidityDays": 7,

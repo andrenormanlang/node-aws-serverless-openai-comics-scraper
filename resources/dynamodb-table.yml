@@ -1,5 +1,5 @@
 Resources:
-  newsplitterTable:
+  retroPopDispatchTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain

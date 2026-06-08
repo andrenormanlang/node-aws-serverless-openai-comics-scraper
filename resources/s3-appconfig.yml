@@ -12,7 +12,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub 'newsplitter-user-avatars-${self:custom.stage}'
+      BucketName: !Sub 'retropop-dispatch-avatars-${self:custom.stage}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true
@@ -39,7 +39,7 @@ Resources:
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
     Properties:
-      BucketName: !Sub 'newsplitter-appconfig-${self:custom.stage}'
+      BucketName: !Sub 'retropop-dispatch-config-${self:custom.stage}'
       PublicAccessBlockConfiguration:
         BlockPublicAcls: true
         BlockPublicPolicy: true

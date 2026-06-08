@@ -38,39 +38,34 @@ const DEFAULT_SELECTORS = [
 ];
 
 const SELECTORS_BY_HOST = {
-  "dn.se": [
-    "article",
-    "div[data-testid='article-body']",
-    "div.article__body",
-    "main article",
-  ],
-  "svt.se": ["div.nyh_article-body", "article", "main article"],
-  "expressen.se": ["article", "div.article__body-text", "main article"],
+  "cbr.com": ["article", "div.entry-content", "main article"],
+  "bleedingcool.com": ["article", "div.entry-content", "main article"],
+  "comicsbeat.com": ["article", "div.entry-content", "main article"],
 };
 
 // Deterministic cleanup of obvious scraping noise before AI rewriting.
 const JUNK_LINE_PATTERNS = [
-  /^foto\s*:/i,
-  /^foto\s+/i,
-  /^fotograf\s*:/i,
-  /^bild\s*:/i,
-  /^(bildtext|bildtexten)\s*:/i,
-  /^(fotokredit|bildkalla|bildkrediter)\s*:/i,
-  /^(las mer|klicka har|prenumerera|tipsa oss|las hela)\b/i,
-  /^oppna bild i helskarm$/i,
-  /^(folj oss|dela artikeln|share|facebook|instagram|twitter|x\.com)\b/i,
-  /^(meny|navigering|annonser|annons)\b/i,
+  /^photo\s*:/i,
+  /^photo\s+by\s+/i,
+  /^photographer\s*:/i,
+  /^image\s*:/i,
+  /^(caption|image caption)\s*:/i,
+  /^(photo credit|image credit|credits?)\s*:/i,
+  /^(read more|click here|subscribe|tip us|read full)\b/i,
+  /^open image in full screen$/i,
+  /^(follow us|share|facebook|instagram|twitter|x\.com)\b/i,
+  /^(menu|navigation|advertisement|sponsored)\b/i,
 ];
 
 const NOISE_SUBSTRINGS = [
-  "oppna bild i helskarm",
-  "oppna i helskarm",
-  "hoppa till innehall",
-  "till startsidan",
-  "relaterade artiklar",
-  "kommentera artikeln",
-  "visa mer",
-  "visa fler",
+  "open image in full screen",
+  "open in full screen",
+  "skip to content",
+  "back to homepage",
+  "related articles",
+  "leave a comment",
+  "see more",
+  "load more",
 ];
 
 const URL_IN_LINE_REGEX = /(https?:\/\/|www\.)\S+/i;
@@ -78,15 +73,15 @@ const BARE_DOMAIN_REGEX =
   /\b[a-z0-9-]+\.(se|com|net|org|nu|io|co)\b(?:\/\S*)?/i;
 // Phrases reliable only in the page <title> (too generic in body).
 const PAYWALL_PHRASES_TITLE = [
-  "las gratis i",
-  "las upp alla artiklar",
-  "prenumerera for att lasa",
+  "subscribe to read",
+  "members only",
+  "premium article",
 ];
 // Phrases specific enough to be a paywall signal in the body.
 const PAYWALL_PHRASES_BODY = [
-  "det har ingar i dn enkel",
-  "godkann kop",
-  "prenumerationsvillkoren",
+  "subscribe to continue reading",
+  "this content is for subscribers",
+  "subscription required",
 ];
 const SLUG_MAX_LENGTH = 100;
 const ITEM_PROCESS_CONCURRENCY = 4;
@@ -313,13 +308,13 @@ function is_likely_non_article_page($, text, sourceUrl = "") {
 
   const body = normalize_for_matching(text);
 
-  const accessBlockers = ["logga in", "prenumerera for att lasa"];
+  const accessBlockers = ["log in", "subscribe to read"];
   const titleOnlyBlockers = ["error", "404", "forbidden", "access denied"];
 
-  // NEW: Keywords specific to live feeds, news-in-brief, or index aggregates
+  // Keywords specific to live feeds and breaking news aggregates
   const liveFeedBlockers = [
-    "senaste nytt i korthet",
-    "direktflöde",
+    "live blog",
+    "live feed",
   ];
 
   const hasAccessSignal = accessBlockers.some(
@@ -569,11 +564,7 @@ async function get_article_data(url) {
       return "";
     }
 
-    // Removing unwanted text
-    const finalSummary = summary.replace(
-      "Javascript är avstängtJavascript måste vara påslaget för att kunna spela videoLäs mer om webbläsarstöd",
-      ""
-    );
+    const finalSummary = summary;
 
     // Cleanup before AI rewrite to reduce junk and token spend.
     const filterSummary = clean_article_text(finalSummary);
@@ -604,17 +595,17 @@ const get_data_from_dynamoDb = async function () {
   // const currentDateEpochTS = 1738281600;
 
   let rssUrls = [
-    "https://www.svt.se/nyheter/rss.xml",
-    "http://www.dn.se/nyheter/m/rss/",
-    "https://feeds.expressen.se/nyheter/",
-    "https://www.forskning.se/feed/",
-    "https://www.dagensarena.se/feed/da",
-    "http://www.europaportalen.se/rss/nyheter",
-    "http://www.riktpunkt.nu/feed/",
-    "https://kvartal.se/feed/",
-    "http://www.svt.se/nyheter/varlden/rss.xml",
-    "https://morgonposten.se/feed",
-    "https://www.newsplitter.se/feed/",
+    "https://www.cbr.com/feed/",
+    "https://bleedingcool.com/feed/",
+    "https://www.comicsbeat.com/feed/",
+    "https://icv2.com/articles/news/rss.xml",
+    "https://aiptcomics.com/feed/",
+    "https://www.multiversitycomics.com/feed/",
+    "https://dccomicsnews.com/feed/",
+    "https://www.gamesradar.com/comics/rss/",
+    "https://www.superherohype.com/feed/",
+    "https://www.comicbookherald.com/feed/",
+    "https://comicbookroundup.com/feed/rss2/",
   ];
 
   // const response = await dynamodb.scan(params).promise();

@@ -35,7 +35,7 @@ export const FEEDBACK_TYPE_DISTRUST = 4;
 // Database tables and indices
 export const WN_STR_KEY_TABLE = process.env.tableName
   ? process.env.tableName
-  : "dev-newsplitter";
+  : "dev-retropop-dispatch";
 export const user_pool_id = process.env.userPoolId;
 export const WN_STR_KEY_AMOUNT_INDEX = "sortKey-amount-index";
 

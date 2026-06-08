@@ -1,11 +1,11 @@
-# Newsplitter API
+# Retro Pop Dispatch API
 
-Serverless REST API for the Newsplitter application, built with [Serverless Framework v4](https://www.serverless.com/) on AWS Lambda + DynamoDB.
+Serverless REST API for the comics news feed of [Retro Pop Comics](https://retro-pop-comics.com), built with [Serverless Framework v4](https://www.serverless.com/) on AWS Lambda + DynamoDB. Aggregates and enriches comics news from RSS feeds using OpenAI, with community features (comments, voting, trending, following).
 
 - **Runtime:** Node.js 24.x
 - **Region:** eu-north-1
-- **Deployment bucket:** `newsplitter-serverless-deploys`
-- **Table name:** `{stage}-newsplitter`
+- **Deployment bucket:** `retropop-dispatch-serverless-deploys`
+- **Table name:** `{stage}-retropop-dispatch`
 
 ---
 
@@ -38,7 +38,7 @@ Serverless Framework v4 requires this key for deployment. Obtain it from your [S
 ### 3. Create the deployment S3 bucket (first time only)
 
 ```bash
-aws s3 mb s3://newsplitter-serverless-deploys --region eu-north-1 --profile andrenormanlang+aws2
+aws s3 mb s3://retropop-dispatch-serverless-deploys --region eu-north-1 --profile andrenormanlang+aws2
 ```
 
 ### 4. Create required SSM parameters (first time only)
@@ -47,14 +47,14 @@ These parameters are resolved by CloudFormation at deploy time and must exist be
 
 ```bash
 aws ssm put-parameter \
-  --name "/newsplitter/openai-key" \
+  --name "/retropop-dispatch/openai-key" \
   --value "<your-openai-api-key>" \
   --type String \
   --region eu-north-1 \
   --profile andrenormanlang+aws2
 
 aws ssm put-parameter \
-  --name "/newsplitter/expo-access-token" \
+  --name "/retropop-dispatch/expo-access-token" \
   --value "<your-expo-access-token>" \
   --type String \
   --region eu-north-1 \
@@ -67,7 +67,7 @@ On Windows (PowerShell), quote the parameter names:
 
 ```powershell
 aws ssm put-parameter `
-  --name '/newsplitter/openai-key' `
+  --name '/retropop-dispatch/openai-key' `
   --value '<your-openai-api-key>' `
   --type String `
   --region eu-north-1 `
@@ -118,9 +118,9 @@ API will be available at `http://localhost:3000`.
 
 All endpoints are defined in [serverless.yml](./serverless.yml). The base URL after deploy is printed in the deploy output as `endpoint`.
 
-### GET /newsplitter/{url}
+### GET /dispatch/{url}
 
-Fetches articles from an RSS feed, stores them in DynamoDB, and returns the last 100.
+Fetches articles from a comics RSS feed, stores them in DynamoDB, and returns the last 100.
 
 | Param | Required | Type   | Description              |
 | ----- | -------- | ------ | ------------------------ |
