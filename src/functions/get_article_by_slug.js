@@ -36,7 +36,7 @@ const fetchDataFromDynamoDb = async function (slug) {
     // Log the error and rethrow it if the fetch operation fails
     console.error(
       "Unable to fetch item from DynamoDB. Error JSON:",
-      JSON.stringify(error, null, 2)
+      JSON.stringify(error, null, 2),
     );
     throw error;
   }
@@ -59,14 +59,14 @@ export const main = handler(async (event) => {
         typeof item.interestCount === "number"
           ? item.interestCount
           : item.likes && item.likes.users
-          ? item.likes.users.length
-          : 0;
+            ? item.likes.users.length
+            : 0;
       const dislikesAmount =
         typeof item.uninterestCount === "number"
           ? item.uninterestCount
           : item.dislikes && item.dislikes.users
-          ? item.dislikes.users.length
-          : 0;
+            ? item.dislikes.users.length
+            : 0;
 
       // Return a success response with the fetched item
       return {

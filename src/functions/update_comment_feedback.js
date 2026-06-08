@@ -4,41 +4,52 @@ import * as dynamoDbLib from "../libs/dynamodb-lib";
 import { calcSubjectPts, calcSubjectCount } from "../libs/utils";
 import { sendPushNotificationToClient } from "../libs/push_notifications_util";
 
-async function updateUserNotifications(rssUrl, url, title, commentId, parentUserId, username, notificationType) {
+async function updateUserNotifications(
+  rssUrl,
+  url,
+  title,
+  commentId,
+  parentUserId,
+  username,
+  notificationType,
+) {
   const notification = {
-      timestamp: Math.floor(new Date().getTime() / 1000),
-      read: false,
-      seen: false,
-      rssUrl,
-      url,
-      title,
-      commentId,
-      username,
-      notificationType
+    timestamp: Math.floor(new Date().getTime() / 1000),
+    read: false,
+    seen: false,
+    rssUrl,
+    url,
+    title,
+    commentId,
+    username,
+    notificationType,
   };
   const params = {
-      TableName: defs.WN_STR_KEY_TABLE,
-      Key: {
-          id: "notifications",
-          sortKey: parentUserId,
-      },
-      ExpressionAttributeNames: {
-          "#notification_name": notificationType
-      },
-      ExpressionAttributeValues: {
-          ":notification": [notification],
-          ":empty_list": [],
-      },
-      UpdateExpression: `SET #notification_name = list_append(if_not_exists(#notification_name, :empty_list), :notification)`,
-      ReturnValues: "ALL_NEW",
+    TableName: defs.WN_STR_KEY_TABLE,
+    Key: {
+      id: "notifications",
+      sortKey: parentUserId,
+    },
+    ExpressionAttributeNames: {
+      "#notification_name": notificationType,
+    },
+    ExpressionAttributeValues: {
+      ":notification": [notification],
+      ":empty_list": [],
+    },
+    UpdateExpression: `SET #notification_name = list_append(if_not_exists(#notification_name, :empty_list), :notification)`,
+    ReturnValues: "ALL_NEW",
   };
 
   try {
-      await dynamoDbLib.call("update", params);
-      console.log('Notification Row Added');
+    await dynamoDbLib.call("update", params);
+    console.log("Notification Row Added");
   } catch (e) {
-      console.log("something went wrong when adding notification row, put error:" + e.message);
-      return false;
+    console.log(
+      "something went wrong when adding notification row, put error:" +
+        e.message,
+    );
+    return false;
   }
 }
 
@@ -120,12 +131,12 @@ export const main = handler(async (event, context) => {
 
     const articleCommentFeedback = await dynamoDbLib.call(
       "get",
-      commentFeedbackQuery
+      commentFeedbackQuery,
     );
     let query;
     console.log(
       "----------articleCommentFeedback--------------------",
-      articleCommentFeedback
+      articleCommentFeedback,
     );
     const referenceComment = {
       id: `${articleUrl}#msg`,
@@ -202,13 +213,19 @@ export const main = handler(async (event, context) => {
 
   const personalValueSubjects = await getPersonalValuesForUser(params.userId);
 
-  console.log("----------personalValues--------------------", personalValueSubjects);
+  console.log(
+    "----------personalValues--------------------",
+    personalValueSubjects,
+  );
 
   let newSubjects = [];
   // Call the function to add notification row in DB for In App
   let profileData = await dynamoDbLib.getUserProfileData(params.userId);
   const getCommentdata = comment.Item;
-  const notiArticleUrl = getCommentdata.id.substr(0, getCommentdata.id.length - 4);
+  const notiArticleUrl = getCommentdata.id.substr(
+    0,
+    getCommentdata.id.length - 4,
+  );
   await updateUserNotifications(
     body.rssUrl,
     notiArticleUrl,
@@ -216,15 +233,15 @@ export const main = handler(async (event, context) => {
     getCommentdata.sortKey.split("#")[1],
     body.parentUserId,
     profileData.nickname,
-    body.notificationType // Pass notification type for comments to differenciate in application
+    body.notificationType, // Pass notification type for comments to differenciate in application
   );
   try {
     let expression = "";
     const containsOpposite = comment.Item.feedback[
       opposites[params.action]
     ].users.includes(params.userId);
-    console.log("=====containsOpposite======",containsOpposite);
-    console.log("=====params.action====================",params.action);
+    console.log("=====containsOpposite======", containsOpposite);
+    console.log("=====params.action====================", params.action);
     let msg = "";
     if (containsOpposite) {
       //this block kicks in if you switch from like to dislike and vice versa
@@ -232,42 +249,42 @@ export const main = handler(async (event, context) => {
         opposites[params.action]
       ].users.indexOf(params.userId);
       if (params.action === "likes") {
-       // msg = params.action+"your comment.";
-          msg = "gillar din kommentar";
+        // msg = params.action+"your comment.";
+        msg = "gillar din kommentar";
         newSubjects = await calcSubjectPts(
           comment.Item,
           personalValueSubjects,
-          true
+          true,
         );
         newSubjects = await calcSubjectCount(
           newSubjects,
           personalValueSubjects,
           true,
-          params.userId
+          params.userId,
         );
       } else if (params.action === "dislikes") {
-       // msg = params.action+"your comment.";
-       msg = "ogillar din kommentar";
+        // msg = params.action+"your comment.";
+        msg = "ogillar din kommentar";
         newSubjects = await calcSubjectPts(
           comment.Item,
           personalValueSubjects,
-          false
+          false,
         );
         newSubjects = await calcSubjectCount(
           newSubjects,
           personalValueSubjects,
           false,
-          params.userId
+          params.userId,
         );
       } else if (
         params.action === "reliable" ||
         params.action === "unreliable"
       ) {
         //msg = params.action+"your comment.";
-        if(params.action === "reliable"){
+        if (params.action === "reliable") {
           msg = "tycker din kommentar är trovärdig";
         }
-        if(params.action === "unreliable"){
+        if (params.action === "unreliable") {
           msg = "ser din kommentar som tvivelaktig";
         }
         newSubjects = JSON.parse(JSON.stringify(comment.Item.subjectPts));
@@ -278,18 +295,18 @@ export const main = handler(async (event, context) => {
     } else {
       //this block kicks if you go from nothing to dislike or nothing to like
       if (params.action === "likes") {
-       // msg = params.action+" your comment.";
-       msg = "gillar din kommentar";
+        // msg = params.action+" your comment.";
+        msg = "gillar din kommentar";
         newSubjects = await calcSubjectPts(
           comment.Item,
           personalValueSubjects,
-          true
+          true,
         );
         newSubjects = await calcSubjectCount(
           newSubjects,
           personalValueSubjects,
           true,
-          params.userId
+          params.userId,
         );
       } else if (
         params.action === "dislikes" ||
@@ -297,13 +314,13 @@ export const main = handler(async (event, context) => {
         params.action === "unreliable"
       ) {
         //msg = params.action+" your comment.";
-        if(params.action === "dislikes"){
+        if (params.action === "dislikes") {
           msg = "ogillar din kommentar";
         }
-        if(params.action === "reliable"){
+        if (params.action === "reliable") {
           msg = "tycker din kommentar är trovärdig";
         }
-        if(params.action === "unreliable"){
+        if (params.action === "unreliable") {
           msg = "ser din kommentar som tvivelaktig";
         }
         newSubjects = JSON.parse(JSON.stringify(comment.Item.subjectPts));
@@ -339,21 +356,19 @@ export const main = handler(async (event, context) => {
     console.log("===========================result===============", result);
     // send push notification to replied user
     let recipientProfileData = await dynamoDbLib.getUserProfileData(
-      comment.Item.userId
+      comment.Item.userId,
       // "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3"
     );
-    let actionProfileData = await dynamoDbLib.getUserProfileData(
-      params.userId
-    );
-    console.log("========actionProfileData========",actionProfileData);
+    let actionProfileData = await dynamoDbLib.getUserProfileData(params.userId);
+    console.log("========actionProfileData========", actionProfileData);
     console.log(
       "===========================resrecipientProfileDatault===============",
-      recipientProfileData
+      recipientProfileData,
     );
     if (recipientProfileData !== null) {
       console.log(
         "sending push notification to user tokens: " +
-          recipientProfileData.expoTokens
+          recipientProfileData.expoTokens,
       );
       if (
         recipientProfileData.expoTokens === null ||
@@ -367,7 +382,7 @@ export const main = handler(async (event, context) => {
         let receiptIds = await sendPushNotificationToClient(
           comment.Item.userId,
           recipientProfileData.expoTokens,
-          messageBody
+          messageBody,
         );
         console.log("ReceiptIds are: " + receiptIds);
       }
@@ -378,7 +393,7 @@ export const main = handler(async (event, context) => {
       await writeArticleCommentFeedback(
         comment.Item,
         params.action,
-        opposites[params.action]
+        opposites[params.action],
       );
     } else {
       await writeArticleCommentFeedback(comment.Item, params.action, false);
@@ -398,25 +413,25 @@ export const main = handler(async (event, context) => {
         likes: {
           amount: result.Attributes.feedback.likes.users.length,
           status: result.Attributes.feedback.likes.users.includes(
-            params.userId
+            params.userId,
           ),
         },
         dislikes: {
           amount: result.Attributes.feedback.dislikes.users.length,
           status: result.Attributes.feedback.dislikes.users.includes(
-            params.userId
+            params.userId,
           ),
         },
         reliable: {
           amount: result.Attributes.feedback.reliable.users.length,
           status: result.Attributes.feedback.reliable.users.includes(
-            params.userId
+            params.userId,
           ),
         },
         unreliable: {
           amount: result.Attributes.feedback.unreliable.users.length,
           status: result.Attributes.feedback.unreliable.users.includes(
-            params.userId
+            params.userId,
           ),
         },
       },
@@ -435,18 +450,18 @@ export const main = handler(async (event, context) => {
         newSubjects = await calcSubjectPts(
           comment.Item,
           personalValueSubjects,
-          false
+          false,
         );
         newSubjects = await calcSubjectCount(
           newSubjects,
           personalValueSubjects,
           false,
-          params.userId
+          params.userId,
         );
       }
       await writeArticleCommentFeedback(comment.Item, false, params.action);
       const userIndex = comment.Item.feedback[params.action].users.indexOf(
-        params.userId
+        params.userId,
       );
 
       const query = {
@@ -484,25 +499,25 @@ export const main = handler(async (event, context) => {
           likes: {
             amount: result.Attributes.feedback.likes.users.length,
             status: result.Attributes.feedback.likes.users.includes(
-              params.userId
+              params.userId,
             ),
           },
           dislikes: {
             amount: result.Attributes.feedback.dislikes.users.length,
             status: result.Attributes.feedback.dislikes.users.includes(
-              params.userId
+              params.userId,
             ),
           },
           reliable: {
             amount: result.Attributes.feedback.reliable.users.length,
             status: result.Attributes.feedback.reliable.users.includes(
-              params.userId
+              params.userId,
             ),
           },
           unreliable: {
             amount: result.Attributes.feedback.unreliable.users.length,
             status: result.Attributes.feedback.unreliable.users.includes(
-              params.userId
+              params.userId,
             ),
           },
         },

@@ -1,78 +1,64 @@
-service: wingednews-api
+service: newsplitter-api
 
-# NOTE: Detta gör att varje handler hamnar i en egen bundle. Mycket snabbare och mer
-# effektivt, väl värt det. Men det går långsammare att 'bundla' under utveckling,
-# så ha det avstängt under utveckling kanske?
-# Create an optimized package for our functions
-package:
-    individually: false
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node24
+    platform: node
+    exclude:
+      - re2
 
-# Use the serverless-webpack plugin to transpile ES6
 plugins:
-    - serverless-bundle
-    - serverless-offline
-    - serverless-dynamo-stream-plugin
+  - serverless-offline
 
 custom:
-    # Use the --stage CLI flag if it was provided, else the fallback stage in provider section
-    stage: ${opt:stage, self:provider.stage}
-    # Use the --region CLI flag if it was provied, else the fallback region in provider section
-    region: ${opt:region, self:provider.region}
+  stage: ${opt:stage, self:provider.stage}
+  region: ${opt:region, self:provider.region}
 
-    # Set the table name here so we can use it while testing locally
-    snsTopicNamePrefix: ${self:custom.stage}-
-    tableName: ${self:custom.stage}-wingednews
+  tableName: ${self:custom.stage}-newsplitter
+  snsTopicNamePrefix: ${self:custom.stage}-
+  snsTopicArnPrefix: arn:aws:sns:${self:custom.region}:${aws:accountId}
 
-    # Base prefix for SNS topic ARNs, scoped to the deployed region and account.
-    # Append the topic name to form a full ARN, e.g. ${snsTopicArnPrefix}:my-topic
-    snsTopicArnPrefix: arn:aws:sns:${self:custom.region}:${aws:accountId}
+  gptModelTitle: ${opt:gptModelTitle, ''}
+  gptModelShort: ${opt:gptModelShort, ''}
+  gptModelLong: ${opt:gptModelLong, ''}
+  gptTokenThreshold: ${opt:gptTokenThreshold, ''}
 
-    # GPT model configuration (pass-through from CLI, defaults are in defs.js)
-    gptModelTitle: ${opt:gptModelTitle, ''}
-    gptModelShort: ${opt:gptModelShort, ''}
-    gptModelLong: ${opt:gptModelLong, ''}
-    gptTokenThreshold: ${opt:gptTokenThreshold, ''}
+  appConfigSeedVersion: ${opt:appConfigSeedVersion, '2026-06-03-v1'}
 
-    serverless-offline:
-        host: "0.0.0.0"
-
-    # Add the bundle section to exclude re2
-    bundle:
-        sourcemaps: true
-        caching: true
-        forceExclude:
-            - re2 # Explicitly exclude the re2 package
+  serverless-offline:
+    host: "0.0.0.0"
 
 provider:
-    name: aws
-    runtime: nodejs16.x
-    stage: dev
-    region: eu-central-1
-    memorySize: 1024 # Overwrite the default memory size. Default is 1024. We can probably even lower it to 256
-    lambdaHashingVersion: 20200924
+  name: aws
+  runtime: nodejs24.x
+  stage: dev
+  region: eu-central-1
+  memorySize: 1024
 
-    deploymentBucket:
-        name: wingednews-serverless-deploys
-        serverSideEncryption: AES256
+  deploymentBucket:
+    name: newsplitter-serverless-deploys
+    serverSideEncryption: AES256
 
-    # These environment variables are made available to our functions
-    # under process.env.
-    environment:
-        tableName: ${self:custom.tableName}
+  environment:
+    tableName: ${self:custom.tableName}
+    avatarBucketName: !Ref AvatarBucket
+    snsTopicArnPrefix: ${self:custom.snsTopicArnPrefix}
+    snsTopicNamePrefix: ${self:custom.snsTopicNamePrefix}
+    userPoolId:
+      Ref: CognitoUserPool
+    GPT_MODEL_TITLE: ${self:custom.gptModelTitle}
+    GPT_MODEL_SHORT: ${self:custom.gptModelShort}
+    GPT_MODEL_LONG: ${self:custom.gptModelLong}
+    GPT_TOKEN_THRESHOLD: ${self:custom.gptTokenThreshold}
+    openAiKey: '{{resolve:ssm:/newsplitter/openai-key}}'
+    EXPO_ACCESS_TOKEN: '{{resolve:ssm:/newsplitter/expo-access-token}}'
 
-        snsTopicArnPrefix: ${self:custom.snsTopicArnPrefix}
-        snsTopicNamePrefix: ${self:custom.snsTopicNamePrefix}
-        userPoolId:
-            Ref: CognitoUserPool
-
-        GPT_MODEL_TITLE: ${self:custom.gptModelTitle}
-        GPT_MODEL_SHORT: ${self:custom.gptModelShort}
-        GPT_MODEL_LONG: ${self:custom.gptModelLong}
-        GPT_TOKEN_THRESHOLD: ${self:custom.gptTokenThreshold}
-
-    # 'iamRoleStatements' defines the permission policy for the Lambda function.
-    # In this case Lambda functions are granted with permissions to access DynamoDB.
-    iamRoleStatements:
+  iam:
+    role:
+      statements:
         - Effect: Allow
           Action:
               - dynamodb:DescribeTable
@@ -95,510 +81,554 @@ provider:
               - dynamodb:ListStreams
           Resource: "arn:aws:dynamodb:${self:custom.region}:*:*/stream/*"
 
-          # - { "Fn::GetAtt": ["WingedNewsTable", "Arn" ] }
-          # - { "Fn::Join": [ "/", [
-          #     { "Fn::GetAtt": ["WingedNewsTable", "Arn" ] }, "index", "sortKey-amount-index"
-          #   ]]}
         - Effect: Allow
           Action:
               - SNS:Publish
           Resource: "arn:aws:sns:${self:custom.region}:*:*"
 
-        # 👇 Add this block for Cognito user deletion
         - Effect: Allow
           Action:
               - cognito-idp:AdminDeleteUser
               - cognito-idp:ListUsers
           Resource: "*"
 
+        - Effect: Allow
+          Action:
+              - s3:ListBucket
+          Resource: !GetAtt AvatarBucket.Arn
+
+        - Effect: Allow
+          Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+          Resource: !Sub '${AvatarBucket.Arn}/*'
+
+        - Effect: Allow
+          Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+          Resource: !Sub '${AppConfigBucket.Arn}/*'
+
 functions:
-    # Defines an HTTP API endpoint that calls the main function in create.js
-    # - path: url path is /notes
-    # - method: POST request
-    # - cors: enabled CORS (Cross-Origin Resource Sharing) for browser cross
-    #     domain api call
-    # - authorizer: authenticate using the AWS IAM role
-    add_articles:
-        handler: src/functions/add_articles.main
-        events:
-            - schedule: rate(15 minutes)
-    data_scrapping_node:
-        handler: src/functions/data_scrapping_node.main
-        timeout: 300
-        events:
-            - schedule: rate(15 minutes)
-    #
-    # Fetching the article stream
-    #
-    get:
-        handler: src/handlers/get.main
-        events:
-            - http:
-                  path: wingednews/{url}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    #
-    # Set / get user profile
-    #
-    set_profile:
-        handler: src/handlers/set_profile.main
-        events:
-            - http:
-                  path: profile/{body}
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    get_profile:
-        handler: src/handlers/get_profile.main
-        events:
-            - http:
-                  path: profile/{body}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    get_user_article_item:
-        handler: src/handlers/get_user_article_item.main
-        events:
-            - http:
-                  path: user/{userId}/article/{articleId}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    add_expo_token:
-        handler: src/handlers/add_expo_token.main
-        events:
-            - http:
-                  path: profile/expoToken
-                  method: post
-                  cors: true
-                  authorizer: aws_iam
-    #
-    # Comments
-    #
-    add_comment:
-        handler: src/handlers/add_comment.main
-        events:
-            - http:
-                  path: comments
-                  method: post
-                  cors: true
-                  authorizer: aws_iam
-    delete_comment:
-        handler: src/functions/delete_comment.main
-        events:
-            - http:
-                  path: comments
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    get_comments:
-        handler: src/handlers/get_comments.main
-        events:
-            - http:
-                  path: comments/{body}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    # new endpoints starts here
-    get_reported_comments:
-        handler: src/functions/get_reported_comments.main
-        events:
-            - http:
-                  path: /comments/reported
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    update_reported_comment:
-        handler: src/functions/update_reported_comment.main
-        events:
-            - http:
-                  path: /comments/reported
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    update_article_feedback:
-        handler: src/functions/update_article_feedback.main
-        events:
-            - http:
-                  path: smart/article/{url}
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    register_scroll_by:
-        handler: src/functions/register_scroll_by.main
-        events:
-            - http:
-                  path: smart/article/scroll-by/{articleId}
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    register_opened_article:
-        handler: src/functions/register_opened_article.main
-        events:
-            - http:
-                  path: smart/article/opened/{articleId}
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    register_interest_vote:
-        handler: src/functions/register_interest_vote.main
-        events:
-            - http:
-                  path: smart/article/vote/{articleId}
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    get_trending_comments:
-        handler: src/functions/get_trending_comments.main
-        events:
-            - http:
-                  path: smart/trending/comments
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    delete_account:
-        handler: src/functions/delete_account.main
-        events:
-            - http:
-                  path: account/delete
-                  method: delete
-                  cors: true
-                  authorizer: aws_iam
-    get_trending_interest:
-        handler: src/functions/get_trending_interest.main
-        events:
-            - http:
-                  path: smart/trending/interest
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    smart_get_metadata:
-        handler: src/functions/get_metadata.main
-        events:
-            - http:
-                  path: smart/metadata/{url}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    smart_update_profile:
-        handler: src/functions/update_profile.main
-        events:
-            - http:
-                  path: smart/profile
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    smart_update_comment_feedback:
-        handler: src/functions/update_comment_feedback.main
-        events:
-            - http:
-                  path: smart/comment/{action}
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    smart_get_notifications:
-        handler: src/functions/get_notifications.main
-        events:
-            - http:
-                  path: smart/notifications
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    smart_update_notifications:
-        handler: src/functions/update_notifications.main
-        events:
-            - http:
-                  path: smart/notifications
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    smart_get_article:
-        handler: src/functions/get_article.main
-        events:
-            - http:
-                  path: smart/article/{url}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    get_article_details:
-        handler: src/functions/get_articledetails.main
-        events:
-            - http:
-                  path: smart/articledetails/{url}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    # get_rewrite: disabled - missing libs/config.js dependency
-    #   handler: src/functions/get_rewrite.main
-    #   events:
-    #     - http:
-    #         path: /rewriteArticle/
-    #         method: get
-    #         cors: true
-    #         authorizer: aws_iam
-    smart_get_subjects:
-        handler: src/functions/get_subjects.main
-        events:
-            - http:
-                  path: smart/subjects
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    smart_update_article_subjects:
-        handler: src/functions/update_article_subjects.main
-        events:
-            - http:
-                  path: smart/subjects
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    smart_update_personal_value:
-        handler: src/functions/update_personal_value.main
-        events:
-            - http:
-                  path: smart/value
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    smart_update_all_personal_values:
-        handler: src/functions/update_all_personal_values.main
-        events:
-            - http:
-                  path: smart/values
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    smart_get_personal_values:
-        handler: src/functions/get_personal_values.main
-        events:
-            - http:
-                  path: smart/values
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    smart_get_support:
-        handler: src/functions/get_support.main
-        events:
-            - http:
-                  path: smart/support
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    smart_update_support:
-        handler: src/functions/update_support.main
-        events:
-            - http:
-                  path: smart/support/{type}
-                  method: put
-                  cors: true
-                  authorizer: aws_iam
-    smart_delete_support:
-        handler: src/functions/delete_support.main
-        events:
-            - http:
-                  path: smart/support/{type}
-                  method: delete
-                  cors: true
-                  authorizer: aws_iam
-    smart_get_article_feedback:
-        handler: src/functions/get_article_feedback.main
-        events:
-            - http:
-                  path: smart/feedback/{articleUrl}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    find_profile:
-        handler: src/functions/find_profile.main
-        events:
-            - http:
-                  path: smart/profile/{userId}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    find_personal_values:
-        handler: src/functions/find_personal_values.main
-        events:
-            - http:
-                  path: smart/values/{userId}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    # Section start followers #
-    add_follower:
-        handler: src/handlers/add_follower.main
-        events:
-            - http:
-                  path: follow
-                  method: post
-                  cors: true
-                  authorizer: aws_iam
+  add_articles:
+    handler: src/functions/add_articles.main
+    events:
+      - schedule: rate(15 minutes)
+  data_scrapping_node:
+    handler: src/functions/data_scrapping_node.main
+    timeout: 300
+    events:
+      - schedule: rate(15 minutes)
 
-    remove_follower:
-        handler: src/handlers/remove_follower.main
-        events:
-            - http:
-                  path: unfollow
-                  method: post
-                  cors: true
-                  authorizer: aws_iam
+  #
+  # Fetching the article stream
+  #
+  get:
+    handler: src/handlers/get.main
+    events:
+      - http:
+          path: newsplitter/{url}
+          method: get
+          cors: true
+          authorizer: aws_iam
 
-    get_followers:
-        handler: src/handlers/get_followers.main
-        events:
-            - http:
-                  path: followers
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
+  #
+  # Set / get user profile
+  #
+  set_profile:
+    handler: src/handlers/set_profile.main
+    events:
+      - http:
+          path: profile/{body}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  get_profile:
+    handler: src/handlers/get_profile.main
+    events:
+      - http:
+          path: profile/{body}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  get_user_article_item:
+    handler: src/handlers/get_user_article_item.main
+    events:
+      - http:
+          path: user/{userId}/article/{articleId}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  add_expo_token:
+    handler: src/handlers/add_expo_token.main
+    events:
+      - http:
+          path: profile/expoToken
+          method: post
+          cors: true
+          authorizer: aws_iam
 
-    check_follower:
-        handler: src/handlers/check_follower.main
-        events:
-            - http:
-                  path: isfollow
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    # Section end followers #
-    db_dispatcher:
-        handler: src/evtdispatchers/db_dispatcher.main
-        events:
-            - existingDynamoStream:
-                  tableName: ${self:custom.tableName}
-                  streamType: NEW_AND_OLD_IMAGES
-                  startingPosition: LATEST
+  #
+  # Comments
+  #
+  add_comment:
+    handler: src/handlers/add_comment.main
+    events:
+      - http:
+          path: comments
+          method: post
+          cors: true
+          authorizer: aws_iam
+  delete_comment:
+    handler: src/functions/delete_comment.main
+    events:
+      - http:
+          path: comments
+          method: put
+          cors: true
+          authorizer: aws_iam
+  get_comments:
+    handler: src/handlers/get_comments.main
+    events:
+      - http:
+          path: comments/{body}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  get_reported_comments:
+    handler: src/functions/get_reported_comments.main
+    events:
+      - http:
+          path: /comments/reported
+          method: get
+          cors: true
+          authorizer: aws_iam
+  update_reported_comment:
+    handler: src/functions/update_reported_comment.main
+    events:
+      - http:
+          path: /comments/reported
+          method: put
+          cors: true
+          authorizer: aws_iam
 
-    notif_add_comment_liked:
-        handler: src/evthandlers/notif_persist_comment_event_generic.main
-        environment:
-            snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_liked_added
-            notificationName: comment_likes
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_liked
-    send_push_comment_liked:
-        handler: src/evthandlers/send_push_comment_generic.main
-        environment:
-            pushText: gillar din kommentar
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_liked_added
-    notif_add_comment_disliked:
-        handler: src/evthandlers/notif_persist_comment_event_generic.main
-        environment:
-            snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_disliked_added
-            notificationName: comment_dislikes
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_disliked
-    send_push_comment_disliked:
-        handler: src/evthandlers/send_push_comment_generic.main
-        environment:
-            pushText: ogillar din kommentar
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_disliked_added
-    notif_add_comment_reliable:
-        handler: src/evthandlers/notif_persist_comment_event_generic.main
-        environment:
-            snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_marked_reliable_added
-            notificationName: comment_reliable
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_marked_reliable
-    send_push_comment_reliable:
-        handler: src/evthandlers/send_push_comment_generic.main
-        environment:
-            pushText: tycker din kommentar är trovärdig
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_marked_reliable_added
-    notif_add_comment_unreliable:
-        handler: src/evthandlers/notif_persist_comment_event_generic.main
-        environment:
-            snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_marked_unreliable_added
-            notificationName: comment_unreliable
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_marked_unreliable
-    send_push_comment_unreliable:
-        handler: src/evthandlers/send_push_comment_generic.main
-        environment:
-            pushText: ser din kommentar som tvivelaktig
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_marked_unreliable_added
-    notif_add_comment_supported:
-        handler: src/evthandlers/notif_persist_comment_event_generic.main
-        environment:
-            snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_supported_added
-            notificationName: comment_supported
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_supported
-    send_push_comment_supported:
-        handler: src/evthandlers/send_push_comment_generic.main
-        environment:
-            pushText: använde din kommentar som ett belägg
-        events:
-            - sns: ${self:custom.snsTopicNamePrefix}comment_supported_added
-    # GVM CHANGES
-    get_personal_statistics:
-        handler: src/functions/get_personal_statistics.main
-        events:
-            - http:
-                  path: smart/statistics/{subjectId}
-                  method: get
-                  cors: true
-                  authorizer: aws_iam
-    post_article:
-        handler: src/functions/post_article.main
-        events:
-            - http:
-                  path: smart/article
-                  method: post
-                  cors: true
-                  authorizer: aws_iam
-    rephrase_article:
-        handler: src/functions/rephrase_article.main
-        events:
-            - http:
-                  path: smart/rephrase/article
-                  method: post
-                  cors: true
-                  authorizer: aws_iam
-    get_article_by_slug:
-        handler: src/functions/get_article_by_slug.main
-        events:
-            - http:
-                  path: smart/slug/article/{slug}
-                  method: get
-                  cors: true
+  update_article_feedback:
+    handler: src/functions/update_article_feedback.main
+    events:
+      - http:
+          path: smart/article/{url}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  register_scroll_by:
+    handler: src/functions/register_scroll_by.main
+    events:
+      - http:
+          path: smart/article/scroll-by/{articleId}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  register_opened_article:
+    handler: src/functions/register_opened_article.main
+    events:
+      - http:
+          path: smart/article/opened/{articleId}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  register_interest_vote:
+    handler: src/functions/register_interest_vote.main
+    events:
+      - http:
+          path: smart/article/vote/{articleId}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  register_support:
+    handler: src/functions/register_support.main
+    events:
+      - http:
+          path: smart/article/support/{articleId}
+          method: put
+          cors: true
+          authorizer: aws_iam
+      - http:
+          path: smart/article/support/{articleId}
+          method: delete
+          cors: true
+          authorizer: aws_iam
+  register_unreliable:
+    handler: src/functions/register_unreliable.main
+    events:
+      - http:
+          path: smart/article/unreliable/{articleId}
+          method: put
+          cors: true
+          authorizer: aws_iam
+      - http:
+          path: smart/article/unreliable/{articleId}
+          method: delete
+          cors: true
+          authorizer: aws_iam
+  register_saved_article:
+    handler: src/functions/register_saved_article.main
+    events:
+      - http:
+          path: smart/article/saved-article/{articleId}
+          method: put
+          cors: true
+          authorizer: aws_iam
+      - http:
+          path: smart/article/saved-article/{articleId}
+          method: delete
+          cors: true
+          authorizer: aws_iam
 
-    # notif_add_comment_trustworthy:
-    #   handler: src/evthandlers/notif_add_comment_trustworthy.main
-    #   events:
-    #     - sns: comment_trustworthy
+  get_trending_comments:
+    handler: src/functions/get_trending_comments.main
+    events:
+      - http:
+          path: smart/trending/comments
+          method: get
+          cors: true
+          authorizer: aws_iam
+  delete_account:
+    handler: src/functions/delete_account.main
+    events:
+      - http:
+          path: account/delete
+          method: delete
+          cors: true
+          authorizer: aws_iam
+  get_trending_interest:
+    handler: src/functions/get_trending_interest.main
+    events:
+      - http:
+          path: smart/trending/interest
+          method: get
+          cors: true
+          authorizer: aws_iam
+  smart_get_metadata:
+    handler: src/functions/get_metadata.main
+    events:
+      - http:
+          path: smart/metadata/{url}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  smart_update_profile:
+    handler: src/functions/update_profile.main
+    events:
+      - http:
+          path: smart/profile
+          method: put
+          cors: true
+          authorizer: aws_iam
+  smart_update_comment_feedback:
+    handler: src/functions/update_comment_feedback.main
+    events:
+      - http:
+          path: smart/comment/{action}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  smart_get_notifications:
+    handler: src/functions/get_notifications.main
+    events:
+      - http:
+          path: smart/notifications
+          method: get
+          cors: true
+          authorizer: aws_iam
+  smart_update_notifications:
+    handler: src/functions/update_notifications.main
+    events:
+      - http:
+          path: smart/notifications
+          method: put
+          cors: true
+          authorizer: aws_iam
+  smart_get_article:
+    handler: src/functions/get_article.main
+    events:
+      - http:
+          path: smart/article/{url}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  get_article_details:
+    handler: src/functions/get_articledetails.main
+    events:
+      - http:
+          path: smart/articledetails/{url}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  smart_get_subjects:
+    handler: src/functions/get_subjects.main
+    events:
+      - http:
+          path: smart/subjects
+          method: get
+          cors: true
+          authorizer: aws_iam
+  smart_update_article_subjects:
+    handler: src/functions/update_article_subjects.main
+    events:
+      - http:
+          path: smart/subjects
+          method: put
+          cors: true
+          authorizer: aws_iam
+  smart_update_personal_value:
+    handler: src/functions/update_personal_value.main
+    events:
+      - http:
+          path: smart/value
+          method: put
+          cors: true
+          authorizer: aws_iam
+  smart_update_all_personal_values:
+    handler: src/functions/update_all_personal_values.main
+    events:
+      - http:
+          path: smart/values
+          method: put
+          cors: true
+          authorizer: aws_iam
+  smart_get_personal_values:
+    handler: src/functions/get_personal_values.main
+    events:
+      - http:
+          path: smart/values
+          method: get
+          cors: true
+          authorizer: aws_iam
+  smart_get_support:
+    handler: src/functions/get_support.main
+    events:
+      - http:
+          path: smart/support
+          method: get
+          cors: true
+          authorizer: aws_iam
+  smart_update_support:
+    handler: src/functions/update_support.main
+    events:
+      - http:
+          path: smart/support/{type}
+          method: put
+          cors: true
+          authorizer: aws_iam
+  smart_delete_support:
+    handler: src/functions/delete_support.main
+    events:
+      - http:
+          path: smart/support/{type}
+          method: delete
+          cors: true
+          authorizer: aws_iam
+  smart_get_article_feedback:
+    handler: src/functions/get_article_feedback.main
+    events:
+      - http:
+          path: smart/feedback/{articleUrl}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  find_profile:
+    handler: src/functions/find_profile.main
+    events:
+      - http:
+          path: smart/profile/{userId}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  find_personal_values:
+    handler: src/functions/find_personal_values.main
+    events:
+      - http:
+          path: smart/values/{userId}
+          method: get
+          cors: true
+          authorizer: aws_iam
 
-    # send_push_comment_trustworthy:
-    #   handler: src/evthandlers/send_push_comment_trustworthy.main
-    #   events:
-    #     - sns: comment_trustworthy_added
+  # Section start followers #
+  add_follower:
+    handler: src/handlers/add_follower.main
+    events:
+      - http:
+          path: follow
+          method: post
+          cors: true
+          authorizer: aws_iam
 
-    # add_field:
-    #   handler: src/functions/add_field.main
-    #   events:
-    #     - http:
-    #         path: smart/profile
-    #         method: get
-    #         cors: true
-    #         authorizer: aws_iam
-    # list1:
-    #   handler: src/functions/list_profiles.main
-    #   events:
-    #     - http:
-    #         path: smart/profile
-    #         method: get
+  remove_follower:
+    handler: src/handlers/remove_follower.main
+    events:
+      - http:
+          path: unfollow
+          method: post
+          cors: true
+          authorizer: aws_iam
+
+  get_followers:
+    handler: src/handlers/get_followers.main
+    events:
+      - http:
+          path: followers
+          method: get
+          cors: true
+          authorizer: aws_iam
+
+  check_follower:
+    handler: src/handlers/check_follower.main
+    events:
+      - http:
+          path: isfollow
+          method: get
+          cors: true
+          authorizer: aws_iam
+
+  get_following_feed:
+    handler: src/handlers/get_following_feed.main
+    events:
+      - http:
+          path: feed/following
+          method: get
+          cors: true
+          authorizer: aws_iam
+  # Section end followers #
+
+  get_personal_statistics:
+    handler: src/functions/get_personal_statistics.main
+    events:
+      - http:
+          path: smart/statistics/{subjectId}
+          method: get
+          cors: true
+          authorizer: aws_iam
+  post_article:
+    handler: src/functions/post_article.main
+    events:
+      - http:
+          path: smart/article
+          method: post
+          cors: true
+          authorizer: aws_iam
+  rephrase_article:
+    handler: src/functions/rephrase_article.main
+    events:
+      - http:
+          path: smart/rephrase/article
+          method: post
+          cors: true
+          authorizer: aws_iam
+  get_article_by_slug:
+    handler: src/functions/get_article_by_slug.main
+    events:
+      - http:
+          path: smart/slug/article/{slug}
+          method: get
+          cors: true
+
+  # Public endpoint - no authentication required, accessed before login
+  get_app_config:
+    handler: src/functions/get_app_config.main
+    environment:
+      appConfigBucketName: !Ref AppConfigBucket
+    events:
+      - http:
+          path: config
+          method: get
+          cors: true
+
+  # CloudFormation custom resource handler - invoked during deployment
+  init_app_config:
+    handler: src/functions/init_app_config.main
+    environment:
+      appConfigBucketName: !Ref AppConfigBucket
+
+  db_dispatcher:
+    handler: src/evtdispatchers/db_dispatcher.main
+    events:
+      - stream:
+          type: dynamodb
+          arn: !GetAtt newsplitterTable.StreamArn
+          startingPosition: LATEST
+
+  notif_add_comment_liked:
+    handler: src/evthandlers/notif_persist_comment_event_generic.main
+    environment:
+      snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_liked_added
+      notificationName: comment_likes
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_liked
+  send_push_comment_liked:
+    handler: src/evthandlers/send_push_comment_generic.main
+    environment:
+      pushText: gillar din kommentar
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_liked_added
+  notif_add_comment_disliked:
+    handler: src/evthandlers/notif_persist_comment_event_generic.main
+    environment:
+      snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_disliked_added
+      notificationName: comment_dislikes
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_disliked
+  send_push_comment_disliked:
+    handler: src/evthandlers/send_push_comment_generic.main
+    environment:
+      pushText: ogillar din kommentar
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_disliked_added
+  notif_add_comment_reliable:
+    handler: src/evthandlers/notif_persist_comment_event_generic.main
+    environment:
+      snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_marked_reliable_added
+      notificationName: comment_reliable
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_marked_reliable
+  send_push_comment_reliable:
+    handler: src/evthandlers/send_push_comment_generic.main
+    environment:
+      pushText: tycker din kommentar är trovärdig
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_marked_reliable_added
+  notif_add_comment_unreliable:
+    handler: src/evthandlers/notif_persist_comment_event_generic.main
+    environment:
+      snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_marked_unreliable_added
+      notificationName: comment_unreliable
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_marked_unreliable
+  send_push_comment_unreliable:
+    handler: src/evthandlers/send_push_comment_generic.main
+    environment:
+      pushText: ser din kommentar som tvivelaktig
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_marked_unreliable_added
+  notif_add_comment_supported:
+    handler: src/evthandlers/notif_persist_comment_event_generic.main
+    environment:
+      snsPublishTo: ${self:custom.snsTopicNamePrefix}comment_supported_added
+      notificationName: comment_supported
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_supported
+  send_push_comment_supported:
+    handler: src/evthandlers/send_push_comment_generic.main
+    environment:
+      pushText: använde din kommentar som ett belägg
+    events:
+      - sns: ${self:custom.snsTopicNamePrefix}comment_supported_added
 
 # Create our resources with separate CloudFormation templates
 resources:
-    # API Gateway Errors
-    - ${file(resources/api-gateway-errors.yml)}
-    # DynamoDB
-    - ${file(resources/dynamodb-table.yml)}
-    # Cognito
-    - ${file(resources/cognito-user-pool.yml)}
-    - ${file(resources/cognito-identity-pool.yml)}
+  - ${file(resources/api-gateway-errors.yml)}
+  - ${file(resources/dynamodb-table.yml)}
+  - ${file(resources/cognito-user-pool.yml)}
+  - ${file(resources/cognito-identity-pool.yml)}
+  - ${file(resources/s3-appconfig.yml)}

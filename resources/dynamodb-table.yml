@@ -1,5 +1,5 @@
 Resources:
-  WingedNewsTable:
+  newsplitterTable:
     Type: AWS::DynamoDB::Table
     DeletionPolicy: Retain
     UpdateReplacePolicy: Retain
@@ -16,15 +16,18 @@ Resources:
           AttributeType: S
         - AttributeName: addedTS
           AttributeType: N
+        - AttributeName: userId
+          AttributeType: S
+        - AttributeName: postedTs
+          AttributeType: N
       KeySchema:
         - AttributeName: id
           KeyType: HASH
         - AttributeName: sortKey
           KeyType: RANGE
-      # Set the capacity to auto-scale
-      ProvisionedThroughput:
-        ReadCapacityUnits: 5
-        WriteCapacityUnits: 5
+      BillingMode: PAY_PER_REQUEST
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
       GlobalSecondaryIndexes:
         - IndexName: sortKey-amount-index
           KeySchema:
@@ -34,9 +37,6 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: KEYS_ONLY
-          ProvisionedThroughput:
-            ReadCapacityUnits: 5
-            WriteCapacityUnits: 5
         - IndexName: sortKey-addedTS-index
           KeySchema:
             - AttributeName: sortKey
@@ -45,19 +45,13 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-          ProvisionedThroughput:
-            ReadCapacityUnits: 5
-            WriteCapacityUnits: 5
         - IndexName: slug-index
           KeySchema:
             - AttributeName: slug
               KeyType: HASH
           Projection:
             ProjectionType: ALL
-          ProvisionedThroughput:
-            ReadCapacityUnits: 5
-            WriteCapacityUnits: 5
-        - IndexName: GSI_Index
+        - IndexName: sortKey-id-stats-index
           KeySchema:
             - AttributeName: sortKey
               KeyType: HASH
@@ -65,6 +59,11 @@ Resources:
               KeyType: RANGE
           Projection:
             ProjectionType: ALL
-          ProvisionedThroughput:
-            ReadCapacityUnits: 5
-            WriteCapacityUnits: 5
+        - IndexName: comments-user-timestamp-index
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: postedTs
+              KeyType: RANGE
+          Projection:
+            ProjectionType: ALL

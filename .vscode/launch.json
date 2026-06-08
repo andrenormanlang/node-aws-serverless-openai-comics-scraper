@@ -3,10 +3,10 @@
         {
             "type": "aws-sam",
             "request": "direct-invoke",
-            "name": "wingednews-api-v2-dev-smart_get_article:src/functions/get_article.main (nodejs12.x)",
+            "name": "newsplitter-api-v2-dev-smart_get_article:src/functions/get_article.main (nodejs12.x)",
             "invokeTarget": {
                 "target": "code",
-                "projectRoot": "${workspaceFolder}/wingednews-api-v2-dev-smart_get_article",
+                "projectRoot": "${workspaceFolder}/newsplitter-api-v2-dev-smart_get_article",
                 "lambdaHandler": "src/functions/get_article.main"
             },
             "lambda": {

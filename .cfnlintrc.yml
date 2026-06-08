@@ -1,0 +1,4 @@
+ignore_checks:
+  - E1010  # GetAtt cross-file references resolved by Serverless Framework at deploy
+  - E1019  # Fn::Sub Serverless Framework variables (${self:...}) not understood by cfn-lint
+  - E1020  # Ref cross-file references resolved by Serverless Framework at deploy

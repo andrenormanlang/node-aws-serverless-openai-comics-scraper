@@ -32,7 +32,7 @@ async function updateUserNotifications(
   commentId,
   parentUserId,
   username,
-  notificationType
+  notificationType,
 ) {
   /*
 
@@ -75,7 +75,7 @@ async function updateUserNotifications(
   } catch (e) {
     console.log(
       "something went wrong when adding notification row, put error:" +
-        e.message
+        e.message,
     );
     return false;
   }
@@ -242,7 +242,7 @@ export async function main(event, context) {
       saveResult.commentId,
       data.parentUserId,
       newEntry.userNickname,
-      data.notificationType // Pass notificationType received from application side
+      data.notificationType, // Pass notificationType received from application side
       // data.msg.includes('#pålitligkommentar') ?
       // "comment_trustworthy" :
       // data.msg.includes('#opålitligkommentar') ?
@@ -255,7 +255,7 @@ export async function main(event, context) {
 
     // send push notification to replied user
     let recipientProfileData = await dynamoDbLib.getUserProfileData(
-      data.parentUserId
+      data.parentUserId,
       // "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3"
     );
     console.log("======recipientProfileData=======", recipientProfileData);
@@ -263,7 +263,7 @@ export async function main(event, context) {
     if (recipientProfileData !== null) {
       console.log(
         "sending push notification to user tokens: " +
-          recipientProfileData.expoTokens
+          recipientProfileData.expoTokens,
       );
       if (
         recipientProfileData.expoTokens === null ||
@@ -279,12 +279,13 @@ export async function main(event, context) {
         //end
         // "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3",
         // "ExponentPushToken[BYVtnxPkfmFtoJ_WbOLrcJ]",
-        let messageBody ='';
+        let messageBody = "";
 
-        if (data.parentMsgId){
-        messageBody = newEntry.userNickname +" har svarat på din kommentar";
+        if (data.parentMsgId) {
+          messageBody = newEntry.userNickname + " har svarat på din kommentar";
         } else {
-        messageBody = newEntry.userNickname +" använde din kommentar som ett belägg";
+          messageBody =
+            newEntry.userNickname + " använde din kommentar som ett belägg";
         }
 
         let receiptIds = await sendPushNotificationToClient(
@@ -293,13 +294,13 @@ export async function main(event, context) {
           recipientProfileData.expoTokens,
           //     "eu-central-1:cba3c8cc-e8af-4394-9739-eaf35064f2a3",
           // ["ExponentPushToken[aYa45gOFhFU4xh2g4OvLyJ]"],
-          messageBody
+          messageBody,
         );
         console.log("receiptIds for push notifications: " + receiptIds);
       }
     } else {
       console.log(
-        "failed to llok up profile for recipient of PN: " + data.parentUserId
+        "failed to llok up profile for recipient of PN: " + data.parentUserId,
       );
     }
 

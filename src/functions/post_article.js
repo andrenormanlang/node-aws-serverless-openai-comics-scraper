@@ -56,7 +56,7 @@ const saveDataInDynamoDb = async function (
   pubDate,
   pubTS,
   slug,
-  subjects
+  subjects,
 ) {
   // Create an instance of the DynamoDB DocumentClient
   // const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -120,7 +120,7 @@ const saveDataInDynamoDb = async function (
   } catch (error) {
     console.error(
       "Unable to save item to DynamoDB. Error JSON:",
-      JSON.stringify(error, null, 2)
+      JSON.stringify(error, null, 2),
     ); // Log any errors
     throw error; // Rethrow the error to handle it outside
   }
@@ -168,7 +168,7 @@ export const main = handler(async (event) => {
       pubDate,
       pubTS,
       slug,
-      subjectsToStore
+      subjectsToStore,
     );
 
     // Return a successful response

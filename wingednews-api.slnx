@@ -1,5 +1,5 @@
 <Solution>
-  <Project Path="wingednews-api.esproj">
+  <Project Path="newsplitter-api.esproj">
     <Build />
     <Deploy />
   </Project>
