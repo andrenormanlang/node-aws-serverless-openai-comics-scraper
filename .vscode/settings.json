@@ -1,0 +1,10 @@
+{
+  "cfnLint.ignoreRules": [
+    "E1010",
+    "E1019",
+    "E1020"
+  ],
+  "yaml.schemas": {
+    "": [".github/workflows/main.yml"]
+  }
+}

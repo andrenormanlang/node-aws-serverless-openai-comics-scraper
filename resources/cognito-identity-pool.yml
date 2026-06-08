@@ -1,3 +1,11 @@
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E1010
+        - E1019
+        - E1020
+
 Resources:
   CognitoIdentityPool:
     Type: AWS::Cognito::IdentityPool

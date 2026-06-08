@@ -1,4 +1,12 @@
-# name: Deploy main branch
+# Workflow disabled. To re-enable, uncomment the jobs below and remove the placeholder.
+name: Deploy main branch
+on: workflow_dispatch
+jobs:
+  placeholder:
+    if: false
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "disabled"
 
 # on:
 #   workflow_dispatch:

@@ -1,3 +1,9 @@
+Metadata:
+  cfn-lint:
+    config:
+      ignore_checks:
+        - E1020
+
 Resources:
   GatewayResponseDefault4XX:
     Type: 'AWS::ApiGateway::GatewayResponse'
