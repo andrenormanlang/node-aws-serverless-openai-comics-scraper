@@ -1,71 +1,137 @@
-# Retro Pop Dispatch API
+# retro-pop-dispatch
 
-Serverless REST API for the comics news feed of [Retro Pop Comics](https://retro-pop-comics.com), built with [Serverless Framework v4](https://www.serverless.com/) on AWS Lambda + DynamoDB. Aggregates and enriches comics news from RSS feeds using OpenAI, with community features (comments, voting, trending, following).
+Serverless comics news backend for [Retro Pop Comics](https://retro-pop-comics.com). Aggregates RSS feeds from 11 comics news sources, scrapes full article content, and uses OpenAI to rewrite each article with an editorial voice. Consumed exclusively by the `retro-pop` Next.js frontend.
 
-- **Runtime:** Node.js 24.x
-- **Region:** eu-north-1
+- **Runtime:** Node.js 24.x on AWS Lambda
+- **Region:** eu-north-1 (Stockholm)
+- **Stage:** `dev` → table `dev-retropop-dispatch`
 - **Deployment bucket:** `retropop-dispatch-serverless-deploys`
-- **Table name:** `{stage}-retropop-dispatch`
+
+---
+
+## Architecture
+
+```text
+RSS feeds (every 15 min)
+  └─► add_articles Lambda
+        └─► DynamoDB  (feed item: sortKey = rssUrl)
+
+Unprocessed articles (every 15 min)
+  └─► data_scrapping_node Lambda
+        ├─► Scrapes full HTML (browser User-Agent to bypass 403s)
+        ├─► GPT-4 rewrites title, description, and body
+        └─► DynamoDB  (processed item: sortKey = "articles")
+
+retro-pop frontend
+  ├─► GET /dispatch/{url}         → feed items for a given RSS URL
+  └─► GET /smart/article/{url}   → AI-rewritten article by URL
+```
+
+### DynamoDB data model
+
+Each article produces two records in the same table, differentiated by `sortKey`:
+
+| `sortKey` value | Contains | Written by |
+| --- | --- | --- |
+| RSS feed URL | pubTS, title, description, rssUrl, amount (engagement) | `add_articles` |
+| `"articles"` | rwBody, rwTitle, rwDescription, orgBody, ttlTS | `data_scrapping_node` |
+
+TTL is enabled on the `ttlTS` attribute — articles expire **4 days** after ingestion.
+
+### Active GSIs
+
+| Index | Hash key | Sort key | Used by |
+| --- | --- | --- | --- |
+| `sortKey-amount-index` | sortKey | amount | `get` (feed query) |
+| `sortKey-addedTS-index` | sortKey | addedTS | `data_scrapping_node` (find unprocessed) |
+
+---
+
+## RSS Sources
+
+| Source | Feed URL |
+| --- | --- |
+| Bleeding Cool | `https://bleedingcool.com/feed/` |
+| Comic Book Herald | `https://www.comicbookherald.com/feed/` |
+| CBR | `https://www.cbr.com/feed/` |
+| The Beat | `https://www.comicsbeat.com/feed/` |
+| ICv2 | `https://icv2.com/articles/news/rss.xml` |
+| AIPT Comics | `https://aiptcomics.com/feed/` |
+| Multiversity Comics | `https://www.multiversitycomics.com/feed/` |
+| DC Comics News | `https://dccomicsnews.com/feed/` |
+| Games Radar (Comics) | `https://www.gamesradar.com/comics/rss/` |
+| Superhero Hype | `https://www.superherohype.com/feed/` |
+| Comic Book Roundup | `https://comicbookroundup.com/feed/rss2/` |
+
+---
+
+## API Endpoints
+
+Base URL (dev): `https://bue12b3514.execute-api.eu-north-1.amazonaws.com/dev`
+
+### `GET /dispatch/{url}`
+
+Returns feed items for a given RSS URL.
+
+| Param | Type | Description |
+| --- | --- | --- |
+| `url` | path | URL-encoded JSON: `encodeURIComponent(JSON.stringify({ rssUrl }))` |
+
+### `GET /smart/article/{url}`
+
+Returns the AI-rewritten article for a given article URL.
+
+| Param | Type | Description |
+| --- | --- | --- |
+| `url` | path | `encodeURIComponent(articleUrl)` |
+| `sortKey` | query | Must be `"articles"` to get the processed item |
 
 ---
 
 ## Prerequisites
 
-- [Node.js 24+](https://nodejs.org/)
-- [AWS CLI](https://aws.amazon.com/cli/) configured with the `andrenormanlang+aws2` profile
-- A [Serverless Framework](https://www.serverless.com/) account with an access key
+- Node.js 24+
+- AWS CLI configured with the `andrenormanlang+aws2` profile
+- Serverless Framework account (access key for v4)
 
 ---
 
 ## Setup
 
-### 1. Install dependencies
-
 ```bash
 npm install
 ```
 
-### 2. Configure credentials
-
-Create a `.env` file in the project root (already gitignored):
+Create `.env` in the project root:
 
 ```bash
 SERVERLESS_ACCESS_KEY=<your-serverless-framework-access-key>
 ```
 
-Serverless Framework v4 requires this key for deployment. Obtain it from your [Serverless Dashboard](https://app.serverless.com/).
+### First-time AWS setup
 
-### 3. Create the deployment S3 bucket (first time only)
+Create the deployment bucket:
 
 ```bash
-aws s3 mb s3://retropop-dispatch-serverless-deploys --region eu-north-1 --profile andrenormanlang+aws2
+aws s3 mb s3://retropop-dispatch-serverless-deploys \
+  --region eu-north-1 \
+  --profile andrenormanlang+aws2
 ```
 
-### 4. Create required SSM parameters (first time only)
-
-These parameters are resolved by CloudFormation at deploy time and must exist before the first deploy:
+Store the OpenAI key in SSM (CloudFormation resolves it at deploy time):
 
 ```bash
-aws ssm put-parameter \
+# Bash / Git Bash (MSYS_NO_PATHCONV prevents path mangling on Windows)
+MSYS_NO_PATHCONV=1 aws ssm put-parameter \
   --name "/retropop-dispatch/openai-key" \
   --value "<your-openai-api-key>" \
   --type String \
   --region eu-north-1 \
   --profile andrenormanlang+aws2
-
-aws ssm put-parameter \
-  --name "/retropop-dispatch/expo-access-token" \
-  --value "<your-expo-access-token>" \
-  --type String \
-  --region eu-north-1 \
-  --profile andrenormanlang+aws2
 ```
 
-> **Note:** Parameters must be type `String` (not `SecureString`) — CloudFormation's `{{resolve:ssm:...}}` syntax does not support SecureString in Lambda environment variables.
-
-On Windows (PowerShell), quote the parameter names:
-
 ```powershell
+# PowerShell
 aws ssm put-parameter `
   --name '/retropop-dispatch/openai-key' `
   --value '<your-openai-api-key>' `
@@ -74,150 +140,52 @@ aws ssm put-parameter `
   --profile andrenormanlang+aws2
 ```
 
+> Parameters must be type `String` — CloudFormation's `{{resolve:ssm:...}}` syntax does not support `SecureString` in Lambda environment variables.
+
 ---
 
 ## Deploy
 
 ```bash
-AWS_PROFILE=andrenormanlang+aws2 npx serverless deploy --stage <stage> --region eu-north-1
-```
-
-Common stages:
-
-| Stage | Purpose |
-| ----- | ------- |
-| `temp-dev` | Personal development |
-| `development` | Shared development |
-| `production` | Production |
-
-Example:
-
-```bash
-AWS_PROFILE=andrenormanlang+aws2 npx serverless deploy --stage temp-dev --region eu-north-1
+AWS_PROFILE=andrenormanlang+aws2 npx serverless deploy \
+  --stage dev \
+  --region eu-north-1
 ```
 
 ### Remove a deployment
 
 ```bash
-AWS_PROFILE=andrenormanlang+aws2 npx serverless remove --stage temp-dev --region eu-north-1
+AWS_PROFILE=andrenormanlang+aws2 npx serverless remove \
+  --stage dev \
+  --region eu-north-1
 ```
+
+> The DynamoDB table has `DeletionPolicy: Retain` — it is **not** managed by CloudFormation and will survive a stack removal.
 
 ---
 
 ## Local development
 
 ```bash
-AWS_PROFILE=andrenormanlang+aws2 npx serverless offline --stage temp-dev
+AWS_PROFILE=andrenormanlang+aws2 npx serverless offline --stage dev
 ```
 
-API will be available at `http://localhost:3000`.
+API available at `http://localhost:3000`.
 
 ---
 
-## Endpoints
+## Manually triggering scrapers
 
-All endpoints are defined in [serverless.yml](./serverless.yml). The base URL after deploy is printed in the deploy output as `endpoint`.
+After a fresh deploy, invoke the scrapers manually to populate data without waiting for the 15-minute schedule:
 
-### GET /dispatch/{url}
+```bash
+# Ingest RSS articles
+AWS_PROFILE=andrenormanlang+aws2 aws lambda invoke \
+  --function-name retro-pop-dispatch-dev-add_articles \
+  --region eu-north-1 /dev/null
 
-Fetches articles from a comics RSS feed, stores them in DynamoDB, and returns the last 100.
-
-| Param | Required | Type   | Description              |
-| ----- | -------- | ------ | ------------------------ |
-| `url` | yes      | string | URL-encoded RSS feed URL |
-
----
-
-### GET /profile/{body}
-
-Returns profile information for the authenticated user.
-
----
-
-### PUT /smart/profile
-
-Updates profile information.
-
-| Field        | Required | Type   | Description                                    |
-| ------------ | -------- | ------ | ---------------------------------------------- |
-| `nickname`   | yes      | string | Username / display name                        |
-| `profilePic` | yes      | string | Profile picture URL                            |
-| `imageKey`   | yes      | string | S3 key for the user avatar                     |
-| `subId`      | yes      | string | Cognito sub ID (from `Auth.currentUserInfo()`) |
-| `email`      | yes      | string | User email                                     |
-
----
-
-### GET /comments/{body}
-
-Returns comments for an article. Expects an article URL as `body`.
-
----
-
-### POST /comments
-
-Adds a comment (or reply) to an article.
-
-| Field         | Required | Type   | Description                                    |
-| ------------- | -------- | ------ | ---------------------------------------------- |
-| `msg`         | yes      | string | Comment text                                   |
-| `parentMsgId` | yes      | string | Parent comment ID, or `0` for a root comment   |
-| `url`         | yes      | string | Article URL                                    |
-| `rssUrl`      | yes      | string | RSS feed URL                                   |
-
----
-
-### PUT /comments
-
-Soft-deletes a comment (nullifies fields to preserve tree structure).
-
-| Field     | Required | Type   |
-| --------- | -------- | ------ |
-| `id`      | yes      | string |
-| `sortKey` | yes      | string |
-
----
-
-### PUT /smart/article/{url}
-
-Updates article feedback.
-
-| Param | Required | Type   | Description |
-| ----- | -------- | ------ | ----------- |
-| `url` | yes      | string | Article URL |
-
-| Field    | Required | Type   | Description                                       |
-| -------- | -------- | ------ | ------------------------------------------------- |
-| `action` | yes      | string | One of: `likes`, `dislikes`, `trust`, `distrust`  |
-
----
-
-### GET /smart/article/{url}
-
-Returns article metadata and feedback stats.
-
-| Param | Required | Type   | Description |
-| ----- | -------- | ------ | ----------- |
-| `url` | yes      | string | Article URL |
-
----
-
-### GET /smart/metadata/{url}
-
-Returns Open Graph metadata for an article (title, image).
-
-| Param | Required | Type   | Description |
-| ----- | -------- | ------ | ----------- |
-| `url` | yes      | string | Article URL |
-
----
-
-### GET /smart/trending/comments
-
-Returns articles ranked by comment activity.
-
----
-
-### GET /smart/trending/interest
-
-Returns articles ranked by like/dislike ratio (interest score).
+# Scrape + AI-rewrite (runs up to 5 min)
+AWS_PROFILE=andrenormanlang+aws2 aws lambda invoke \
+  --function-name retro-pop-dispatch-dev-data_scrapping_node \
+  --region eu-north-1 /dev/null
+```
