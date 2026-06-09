@@ -1,0 +1,22 @@
+{
+    "Records": [
+        {
+            "EventSource": "aws:sns",
+            "EventVersion": "1.0",
+            "EventSubscriptionArn": "arn:aws:sns:eu-north-1:325845585854:comment_liked:22c6fb43-564e-4ebd-a4ae-414a1a285f34",
+            "Sns": {
+                "Type": "Notification",
+                "MessageId": "3eeb46ab-619e-59ee-82dd-1f94433fd109",
+                "TopicArn": "arn:aws:sns:eu-north-1:325845585854:comment_liked",
+                "Subject": null,
+                "Message": "{\r\n    \"commentId\": \"03285320-b7da-11eb-b209-2573d4fd34ee\",\r\n    \"commentSortKey\": \"0#03285320-b7da-11eb-b209-2573d4fd34ee\",\r\n    \"timestamp\": 1623587558,\r\n    \"title\": \"Anh\u00E5llna misst\u00E4nkta f\u00F6r brandattack har sl\u00E4ppts\",\r\n    \"url\": \"https:\/\/www.svt.se\/nyheter\/lokalt\/sormland\/anhallna-misstankta-for-brandattack-har-slappts\",\r\n    \"username\": \"Alexei Snisarenko\"\r\n}",
+                "Timestamp": "2021-06-12T21:00:17.606Z",
+                "SignatureVersion": "1",
+                "Signature": "eG9O3QnaDgqnSKPLLKnyao6eoKKQT03KFuAZZsldYh+HgJ26u7J5RvgE/zgqveDim0wqQ5js4GxsY9Ru3u2DMbEjP2UkIsP3gtzrMgCHOeeQ2EfzGocV15GCZL2uYYAIlR/ZZidQlsCZn/nJrU8Ww4r//q29I9kGohykvJnhtNYDUarVoHJQnp3uSdInq25sHWJyq3iYynwcAwUNR9yogJTHGcV7rl37muTLra6mU5RmITXuWdlUKJYVCLI/SthbTL4qw9rjKh6or3uibBxSQXrCZNLM2FgdAAKQWpZDJrJ5TaMF0DfljyREOQFJXnZkvu8Ub6IuHvGz9EwZ0PkBzQ==",
+                "SigningCertUrl": "https://sns.eu-north-1.amazonaws.com/SimpleNotificationService-010a507c1833636cd94bdb98bd93083a.pem",
+                "UnsubscribeUrl": "https://sns.eu-north-1.amazonaws.com/?Action=Unsubscribe&SubscriptionArn=arn:aws:sns:eu-north-1:325845585854:comment_liked:22c6fb43-564e-4ebd-a4ae-414a1a285f34",
+                "MessageAttributes": {}
+            }
+        }
+    ]
+}

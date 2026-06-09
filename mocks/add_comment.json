@@ -1,0 +1,9 @@
+{
+  "body": "{\"msg\":\"WEF! :)\", \"parentMsgId\": 0, \"rssUrl\": \"https://www.svt.se/nyheter/rss.xml\", \"url\": \"https://www.svt.se/nyheter/inrikes/inga-svenskar-far-flyga-fran-kastrup\"}",
+  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
+  }
+}
+	

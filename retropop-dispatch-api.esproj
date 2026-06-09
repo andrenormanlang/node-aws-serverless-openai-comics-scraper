@@ -1,0 +1,12 @@
+
+<!-- 
+    This project file is added to let Visual Studio (not vs code) 
+    recognize the JavaScript test files in the tests folder and 
+    run them using the Jest test framework. 
+-->
+<Project Sdk="Microsoft.VisualStudio.JavaScript.SDK/1.0.4991845">
+  <PropertyGroup>
+    <JavaScriptTestRoot>tests\</JavaScriptTestRoot>
+    <JavaScriptTestFramework>Jest</JavaScriptTestFramework>
+  </PropertyGroup>
+</Project>

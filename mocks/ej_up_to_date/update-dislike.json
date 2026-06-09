@@ -1,0 +1,11 @@
+{
+  "body": "{\"action\":2}",
+  "pathParameters": {
+    "url": "https://www.svt.se/nyheter/utrikes/federal-domare-stoppar-ny-abortlag-i-mississippi"
+  },
+  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
+  }
+}

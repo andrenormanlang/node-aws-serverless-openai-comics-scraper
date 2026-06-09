@@ -1,55 +1,99 @@
----
-service: wingednews-api-v3
-frameworkVersion: "3"
-package:
-  individually: false
-  exclude:
-    - tests/**
+service: retro-pop-dispatch
+
+build:
+  esbuild:
+    bundle: true
+    minify: false
+    sourcemap: true
+    target: node24
+    platform: node
+    exclude:
+      - re2
+
 plugins:
-  - serverless-bundle
   - serverless-offline
-  - serverless-dynamo-stream-plugin
+
+custom:
+  stage: ${opt:stage, self:provider.stage}
+  region: ${opt:region, self:provider.region}
+  tableName: ${self:custom.stage}-retropop-dispatch
+
+  gptModelTitle: ${opt:gptModelTitle, ''}
+  gptModelShort: ${opt:gptModelShort, ''}
+  gptModelLong: ${opt:gptModelLong, ''}
+  gptTokenThreshold: ${opt:gptTokenThreshold, ''}
+
+  serverless-offline:
+    host: "0.0.0.0"
+
 provider:
   name: aws
-  runtime: nodejs20.x
-  stage: ${env:STAGE, 'development'}
-  tableName: "${self:provider.stage}-wingednews"
-  stackName: ${self:service}-${self:provider.stage}
-  apiName: ${self:service}-${self:provider.stage}
-  region: ${env:AWS_REGION, 'eu-central-1'}
+  runtime: nodejs24.x
+  stage: dev
+  region: eu-north-1
   memorySize: 1024
-  environment:
-    tableName: ${self:provider.tableName}
 
-  iamRoleStatements:
-    - Effect: Allow
-      Action:
-        - dynamodb:DescribeTable
-        - dynamodb:Query
-        - dynamodb:Scan
-        - dynamodb:GetItem
-        - dynamodb:PutItem
-        - dynamodb:UpdateItem
-        - dynamodb:DeleteItem
-        - dynamodb:BatchWriteItem
-        - dynamodb:BatchGetItem
-        - dynamodb:UpdateTimeToLive
-      Resource: "arn:aws:dynamodb:eu-north-1:*:*"
+  deploymentBucket:
+    name: retropop-dispatch-serverless-deploys
+    serverSideEncryption: AES256
+
+  environment:
+    tableName: ${self:custom.tableName}
+    GPT_MODEL_TITLE: ${self:custom.gptModelTitle}
+    GPT_MODEL_SHORT: ${self:custom.gptModelShort}
+    GPT_MODEL_LONG: ${self:custom.gptModelLong}
+    GPT_TOKEN_THRESHOLD: ${self:custom.gptTokenThreshold}
+    openAiKey: '{{resolve:ssm:/retropop-dispatch/openai-key}}'
+
+  iam:
+    role:
+      statements:
+        - Effect: Allow
+          Action:
+            - dynamodb:DescribeTable
+            - dynamodb:Query
+            - dynamodb:Scan
+            - dynamodb:GetItem
+            - dynamodb:PutItem
+            - dynamodb:UpdateItem
+            - dynamodb:DeleteItem
+            - dynamodb:BatchWriteItem
+            - dynamodb:BatchGetItem
+            - dynamodb:UpdateTimeToLive
+          Resource: "arn:aws:dynamodb:${self:custom.region}:*:*"
+
 functions:
+  # ── Scheduled: ingest RSS articles every 15 min ──────────────────────────
   add_articles:
-    handler: src/articles/add_articles.main
+    handler: src/functions/add_articles.main
     events:
       - schedule: rate(15 minutes)
 
+  # ── Scheduled: scrape + AI-rewrite articles every 15 min ─────────────────
+  data_scrapping_node:
+    handler: src/functions/data_scrapping_node.main
+    timeout: 300
+    events:
+      - schedule: rate(15 minutes)
+
+  # ── GET /dispatch/{url}  →  feed articles for a given RSS URL ─────────────
+  get:
+    handler: src/handlers/get.main
+    events:
+      - http:
+          path: dispatch/{url}
+          method: get
+          cors: true
+
+  # ── GET /smart/article/{url}?sortKey=articles  →  AI-rewritten article ────
   smart_get_article:
-    handler: src/articles/get_article.main
+    handler: src/functions/get_article.main
     events:
       - http:
           path: smart/article/{url}
           method: get
           cors: true
-          authorizer: aws_iam
 
 resources:
-  # DynamoDB
+  - ${file(resources/api-gateway-errors.yml)}
   - ${file(resources/dynamodb-table.yml)}

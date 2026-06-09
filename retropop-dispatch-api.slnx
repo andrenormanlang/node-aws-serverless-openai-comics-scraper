@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="retro-pop-dispatch-api.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>

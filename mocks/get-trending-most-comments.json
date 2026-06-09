@@ -1,0 +1,10 @@
+{
+  "pathParameters": {
+    "data": "%7B%22category%22%3A%205%7D"
+  },
+  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
+  }
+}

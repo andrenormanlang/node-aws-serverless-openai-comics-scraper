@@ -2,10 +2,106 @@ import * as dynamoDbLib from "../libs/dynamodb-lib";
 import * as dl_xml_utils from "../libs/dl_xml_utils";
 import * as defs from "../libs/defs";
 
+// ─────────────────────────────────────────────
+// RSS item pre-filters (mirrors is_likely_non_article_page
+// from the scraping lambda, using only RSS-available fields)
+// ─────────────────────────────────────────────
+
+// Blocked URL patterns — live feeds and other non-article pages
+const BLOCKED_URL_PATTERNS = [
+  /\/live-blog\//i,
+  /\/liveblog\//i,
+  /\/live-updates\//i,
+  /\/breaking-news\//i,
+];
+
+// Mirrors liveFeedBlockers in scraping lambda
+const LIVE_FEED_KEYWORDS = [
+  "live blog",
+  "live feed",
+  "live updates",
+  "live coverage",
+];
+
+// Mirrors titleOnlyBlockers in scraping lambda
+const TITLE_BLOCKERS = ["error", "404", "forbidden", "access denied"];
+
+// Mirrors PAYWALL_PHRASES_TITLE in scraping lambda
+const PAYWALL_TITLE_PHRASES = [
+  "subscribe to read",
+  "members only",
+  "premium article",
+];
+
+// Mirrors accessBlockers in scraping lambda
+const ACCESS_BLOCKERS = ["log in to read", "subscribe to read"];
+
+// Mirrors normalize_for_matching in scraping lambda
+function normalizeForMatching(text) {
+  return text
+    .toLowerCase()
+    .replace(/[\u00E5\u00C5]/g, "a")
+    .replace(/[\u00E4\u00C4]/g, "a")
+    .replace(/[\u00F6\u00D6]/g, "o");
+}
+
+function isBlockedRSSItem(item) {
+  // 1. URL pattern check
+  if (BLOCKED_URL_PATTERNS.some((pattern) => pattern.test(item.id))) {
+    console.log(`Skipping blocked URL pattern: ${item.id}`);
+    return true;
+  }
+
+  const normalizedTitle = normalizeForMatching(item.title || "");
+  const normalizedDescription = normalizeForMatching(item.description || "");
+
+  // 2. Live feed keywords in title or description
+  if (
+    LIVE_FEED_KEYWORDS.some(
+      (kw) => normalizedTitle.includes(kw) || normalizedDescription.includes(kw)
+    )
+  ) {
+    console.log(`Skipping live feed keyword match: ${item.id}`);
+    return true;
+  }
+
+  // 3. Hard title blockers (error pages, 404s)
+  if (TITLE_BLOCKERS.some((kw) => normalizedTitle.includes(kw))) {
+    console.log(`Skipping blocked title keyword: ${item.id}`);
+    return true;
+  }
+
+  // 4. Paywall signals in title
+  if (PAYWALL_TITLE_PHRASES.some((kw) => normalizedTitle.includes(kw))) {
+    console.log(`Skipping paywall title signal: ${item.id}`);
+    return true;
+  }
+
+  // 5. Access blockers in title or description
+  if (
+    ACCESS_BLOCKERS.some(
+      (kw) => normalizedTitle.includes(kw) || normalizedDescription.includes(kw)
+    )
+  ) {
+    console.log(`Skipping access blocker signal: ${item.id}`);
+    return true;
+  }
+
+  return false;
+}
+
+// ─────────────────────────────────────────────
+// Core functions
+// ─────────────────────────────────────────────
+
+//
+// fetchNewDataFromRSS
+// Filter out items with pubDate older than 'fromTS'
+//
 async function fetchNewDataFromRSS(rssUrl, fromTS) {
   let downloadedData = await dl_xml_utils.downloadData(rssUrl);
   let channelNode = dl_xml_utils.getXmlChannelNodeFromXMLString(downloadedData);
-    console.log(channelNode);
+  console.log(channelNode);
   let newsData = dl_xml_utils.extractNewsDataFromXMLChannelNode(channelNode);
 
   let transformedRSSItems = newsData.items;
@@ -26,21 +122,17 @@ async function fetchNewDataFromRSS(rssUrl, fromTS) {
       let tsForPubDate =
         dl_xml_utils.getTimestampFromFormattedTimestamp(formattedPubDate);
       item.pubDate = formattedPubDate;
-      item.pubTS = tsForPubDate; // (same as amount attribute, put kept as a duplicate clearer name as well)
+      item.pubTS = tsForPubDate; // (same as amount attribute, kept as a duplicate clearer name as well)
       item.sortKey = rssUrl; // Sort key for str db
       item.amount = tsForPubDate; // sort key for GSI on str db
-      item.trust = {
-        users: [],
-      };
-      item.distrust = {
-        users: [],
-      };
-      item.likes = {
-        users: [],
-      };
-      item.dislikes = {
-        users: [],
-      };
+      item.trust = { users: [] };
+      item.distrust = { users: [] };
+      item.likes = { users: [] };
+      item.dislikes = { users: [] };
+      item.scrollByCount = 0;
+      item.openedCount = 0;
+      item.interestCount = 0;
+      item.uninterestCount = 0;
       item.msgCount = 0;
       item.addedTS = tsNow;
       item.addedTSDbg = tsNowDbg;
@@ -62,8 +154,6 @@ async function fetchNewDataFromRSS(rssUrl, fromTS) {
         );
         item.pubTS = adjustedPubDate;
       }
-
-      //console.log("\t\tpubDateTS: " + (new Date(item.pubDateTS)) + ", addedTS: " + (new Date(item.addedTS)));
     }
 
     return item;
@@ -73,12 +163,9 @@ async function fetchNewDataFromRSS(rssUrl, fromTS) {
 
   dl_xml_utils.cleanAttribs(transformedRSSItems);
 
-  //console.log("len pre: " + transformedRSSItems.length);
-  //transformedRSSItems = transformedRSSItems.filter( item => { console.log("cmp: " + item.pubDate + ", " + dynamoDbLib.tsToDbgStr(item.pubTS) + " > " + dynamoDbLib.tsToDbgStr(fromTS)); return item.pubTS >= fromTS } );
   transformedRSSItems = transformedRSSItems.filter((item) => {
     return item.pubTS >= fromTS;
   });
-  //console.log("len post: " + transformedRSSItems.length);
 
   return { items: transformedRSSItems, channelHeader };
 }
@@ -109,7 +196,7 @@ async function updateDB(rssUrl, mostRecentItemTS) {
   let newsData = await fetchNewDataFromRSS(rssUrl, xHoursAgoTS);
   console.log(newsData);
   let newRSSItems = newsData.items;
-  let channelHeader = newsData?.channelHeader??{};
+  let channelHeader = newsData?.channelHeader ?? {};
 
   if (newRSSItems === null || newRSSItems.length === 0) {
     console.log("updateDB: fetchNewDataFromRSS failed.");
@@ -120,46 +207,42 @@ async function updateDB(rssUrl, mostRecentItemTS) {
     return a.pubTS - b.pubTS;
   });
   console.log("updateDB: New RSS data:" + newRSSItems.length);
-  /*newRSSItems.forEach(function(c, idx) {
-    console.log(c.pubDate + " - " + c.title);
-  });*/
 
   //
   // Sort out items that should already be in the database
   //
-
-  //console.log("*** mostRecentItemTS: " + mostRecentItemTS);
-  //console.log("Items # before filter: " + newRSSItems.length);
   let newItems = newRSSItems.filter((item) => {
     let pubTS = item.pubTS ? item.pubTS : item.sortNbr;
     return pubTS > mostRecentItemTS;
   });
-  //console.log("Items # after filter: " + newItems.length);
 
   //
   // Write to database
   //
-
   let newMostRecentItemTS = mostRecentItemTS;
 
   if (newItems && newItems.length > 0) {
-    newMostRecentItemTS = getMostRecentItemTS(newItems);
+    // Filter out non-article items before writing to DB
+    const filteredItems = newItems.filter((item) => !isBlockedRSSItem(item));
 
-    console.log("updateDB: Items to write: " + newItems.length);
+    if (filteredItems.length === 0) {
+      console.log("updateDB: No new items after RSS filtering");
+      return { channelHeader, newMostRecentItemTS };
+    }
 
+    newMostRecentItemTS = getMostRecentItemTS(filteredItems);
+    console.log(
+      "updateDB: Items to write after filtering: " + filteredItems.length
+    );
+
+    let itemsToWrite = [...filteredItems]; // copy so splice doesn't mutate the original
     do {
       // Write 25 items at the time, since batch write cannot write too many at once
-      let itemsToWriteForLatestFeed = newItems.splice(
+      let itemsToWriteForLatestFeed = itemsToWrite.splice(
         0,
-        newItems.length > 25 ? 25 : newItems.length
+        itemsToWrite.length > 25 ? 25 : itemsToWrite.length
       );
 
-      /*console.log("*** WRITE BATCH:")
-      itemsToWrite.forEach(function(c) {
-        console.log(c.pubDate + " - " + c.title + ": " + c.id + " + " + c.pubTS);
-      });*/
-
-      // Write the two batches, to the two tables, in parallell
       try {
         let result = await dynamoDbLib.doBatchWrite(
           defs.WN_STR_KEY_TABLE,
@@ -168,18 +251,13 @@ async function updateDB(rssUrl, mostRecentItemTS) {
 
         if (result) {
           // The result can contain unprocessed items. Perhaps this is something that we need to handle in the future
-          //console.log("updateDB: Batch writes completed with results:");
-          //console.log(writeResults);
         } else {
           console.log("updateDB: Batch write returned null");
         }
       } catch (e) {
         console.log(`updateDB: Batchwrite failed`);
       }
-    } while (newItems.length > 0);
-
-    /*
-     */
+    } while (itemsToWrite.length > 0);
   } else {
     console.log("updateDB: No new items to add");
   }
@@ -248,10 +326,6 @@ async function queryMetaDataForSource(rssUrl) {
   try {
     const result = await dynamoDbLib.call("get", params);
     if (result) {
-      //console.log("queryMetaDataForSource, get success for: " + rssUrl);
-      //console.log("RESULT:");
-      //console.log(result);
-
       if (result.Item) {
         let item = result.Item;
 
@@ -281,7 +355,6 @@ async function queryMetaDataForSource(rssUrl) {
 
   if (tsLastSynched > -1) {
     let tsDiff = dynamoDbLib.now() - tsLastSynched;
-    //console.log("queryMetaDataForSource, ts diff is: " + tsDiff);
 
     if (tsDiff > defs.GET_MIN_TS_BETWEEN_SYNCH) {
       console.log(
@@ -305,37 +378,42 @@ async function queryMetaDataForSource(rssUrl) {
 export async function main() {
   console.log("adding articles");
   let rssUrls = [
-    "https://www.svt.se/nyheter/rss.xml",
-    "http://www.dn.se/nyheter/m/rss/",
-    "https://feeds.expressen.se/nyheter/",
-    "https://www.forskning.se/feed/",
-    "https://www.dagensarena.se/feed/da",
-    "http://www.europaportalen.se/rss/nyheter",
-    "http://www.riktpunkt.nu/feed/",
-    "https://kvartal.se/feed/",
-    "http://www.svt.se/nyheter/varlden/rss.xml",
-    "https://morgonposten.se/feed",
-    "https://www.newsplitter.se/feed/",
-    ];
-  console.log({rssUrls});
-  // wait for all sources to resolve the promise
-  await Promise.all(rssUrls.map(async rssUrl => {
-    try{
-      console.log("checking: ",rssUrl);
-      let metaDataForSource = await queryMetaDataForSource(rssUrl);
-      let { mostRecentItemTS } = metaDataForSource;
+    "https://www.cbr.com/feed/",
+    "https://bleedingcool.com/feed/",
+    "https://www.comicsbeat.com/feed/",
+    "https://icv2.com/articles/news/rss.xml",
+    "https://aiptcomics.com/feed/",
+    "https://www.multiversitycomics.com/feed/",
+    "https://dccomicsnews.com/feed/",
+    "https://www.gamesradar.com/comics/rss/",
+    "https://www.superherohype.com/feed/",
+    "https://www.comicbookherald.com/feed/",
+    "https://comicbookroundup.com/feed/rss2/",
+  ];
+  console.log({ rssUrls });
+
+  await Promise.all(
+    rssUrls.map(async (rssUrl) => {
+      try {
+        console.log("checking: ", rssUrl);
+        let metaDataForSource = await queryMetaDataForSource(rssUrl);
+        let { mostRecentItemTS } = metaDataForSource;
         let { channelHeader, newMostRecentItemTS } = await updateDB(
           rssUrl,
           mostRecentItemTS
         );
-          let res;
+        let res;
         if (channelHeader) {
-          res = await mark_db_updated(rssUrl, newMostRecentItemTS, channelHeader);
+          res = await mark_db_updated(
+            rssUrl,
+            newMostRecentItemTS,
+            channelHeader
+          );
         }
         console.log("main: UpdateDB done, result: ", res);
-    }catch(e){
-      console.error("could not add news to db", JSON.stringify(e, null, 2));
-    }
-
-  }));
-};
+      } catch (e) {
+        console.error("could not add news to db", JSON.stringify(e, null, 2));
+      }
+    })
+  );
+}

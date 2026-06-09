@@ -1,0 +1,10 @@
+{
+  "pathParameters": {
+    "rss": "https://www.svt.se/nyheter/rss.xml"
+  },
+  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
+  }
+}

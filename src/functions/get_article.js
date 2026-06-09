@@ -3,14 +3,14 @@ import * as defs from "../libs/defs";
 import handler from "../libs/handler-lib";
 
 export const main = handler(async (event, context) => {
-  const userId = event.requestContext.identity.cognitoIdentityId;
+  const userId = event.requestContext?.identity?.cognitoIdentityId ?? null;
   const q = {
     url: decodeURIComponent(event.pathParameters.url),
   };
   console.log(event);
-  const data = event.queryStringParameters;
+  const data = event.queryStringParameters ?? {};
   console.log("koko: ", data);
-  if (!userId || !q.url) return;
+  if (!q.url || !data.sortKey) return {};
 
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
@@ -27,6 +27,20 @@ export const main = handler(async (event, context) => {
 
   //pretty sure i have to reset db
 
+  // Resolve vote counts: prefer `interestCount`/`uninterestCount`, fallback to likes/dislikes arrays
+  const likesAmount =
+    typeof result.Item.interestCount === "number"
+      ? result.Item.interestCount
+      : result.Item.likes && result.Item.likes.users
+      ? result.Item.likes.users.length
+      : 0;
+  const dislikesAmount =
+    typeof result.Item.uninterestCount === "number"
+      ? result.Item.uninterestCount
+      : result.Item.dislikes && result.Item.dislikes.users
+      ? result.Item.dislikes.users.length
+      : 0;
+
   return {
     ...result.Item,
     trust: {
@@ -38,12 +52,18 @@ export const main = handler(async (event, context) => {
       status: result.Item.distrust.users.includes(userId),
     },
     likes: {
-      amount: result.Item.likes.users.length,
-      status: result.Item.likes.users.includes(userId),
+      amount: likesAmount,
+      status:
+        result.Item.likes && result.Item.likes.users
+          ? result.Item.likes.users.includes(userId)
+          : false,
     },
     dislikes: {
-      amount: result.Item.dislikes.users.length,
-      status: result.Item.dislikes.users.includes(userId),
+      amount: dislikesAmount,
+      status:
+        result.Item.dislikes && result.Item.dislikes.users
+          ? result.Item.dislikes.users.includes(userId)
+          : false,
     },
     support: {
       amount: result.Item.support.length,

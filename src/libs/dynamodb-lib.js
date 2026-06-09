@@ -1,15 +1,43 @@
-import AWS from "aws-sdk";
+import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
+import {
+  DynamoDBDocumentClient,
+  GetCommand,
+  PutCommand,
+  DeleteCommand,
+  ScanCommand,
+  QueryCommand,
+  TransactWriteCommand,
+  UpdateCommand,
+  BatchWriteCommand,
+  BatchGetCommand,
+} from "@aws-sdk/lib-dynamodb";
 import * as defs from "./defs";
 
-const dynamoDb = new AWS.DynamoDB.DocumentClient();
+const ddbClient = new DynamoDBClient({});
+// Create a DynamoDBDocumentClient that removes undefined values when marshalling.
+// This prevents errors when objects contain undefined fields (common in optional fields).
+const marshallOptions = { removeUndefinedValues: true };
+const translateConfig = { marshallOptions };
+const docClient = DynamoDBDocumentClient.from(ddbClient, translateConfig);
 
-export function call (action, params)
-{
-  return dynamoDb[action](params).promise();
+const commands = {
+  get: GetCommand,
+  put: PutCommand,
+  delete: DeleteCommand,
+  query: QueryCommand,
+  scan: ScanCommand,
+  transactWrite: TransactWriteCommand,
+  update: UpdateCommand,
+  batchWrite: BatchWriteCommand,
+  batchGet: BatchGetCommand,
+};
+
+export function call(action, params) {
+  const Command = commands[action];
+  return docClient.send(new Command(params));
 }
 
-export async function getUserProfileData (userId)
-{
+export async function getUserProfileData(userId) {
   let composedKey = "profile#" + userId;
 
   const params = {
@@ -20,26 +48,21 @@ export async function getUserProfileData (userId)
     },
   };
 
-  try
-  {
+  try {
     const result = await call("get", params);
-    if (result && result.Item)
-    {
+    if (result && result.Item) {
       return result.Item;
-    } else
-    {
+    } else {
       console.error("dynamodb-lib.getUserProfileData, empty item returned.");
       return null;
     }
-  } catch (e)
-  {
+  } catch (e) {
     console.error("dynamodb-lib.getUserProfileData, Error: " + e.message);
     return null;
   }
 }
 
-export async function checkFollower (userId, followingUserId)
-{
+export async function checkFollower(userId, followingUserId) {
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
     Key: {
@@ -48,48 +71,39 @@ export async function checkFollower (userId, followingUserId)
     },
   };
 
-  try
-  {
+  try {
     const result = await call("get", params);
 
-    if (result && result.Item)
-    {
+    if (result && result.Item) {
       return true;
-    } else
-    {
+    } else {
       return null;
     }
-  } catch (e)
-  {
+  } catch (e) {
     return null;
   }
 }
 
 const SEC_PER_DAY = 3600 * 24;
 
-export function ttlTS (daysFromNow)
-{
+export function ttlTS(daysFromNow) {
   return Math.round(Date.now() / 1000) + daysFromNow * SEC_PER_DAY;
 }
 
-export function tsToDbgStr (ts)
-{
+export function tsToDbgStr(ts) {
   let tmp = new Date(ts * 1000);
   return tmp.toDateString() + ", " + tmp.toTimeString();
 }
 
-export function now ()
-{
+export function now() {
   return Math.round(Date.now() / 1000);
 }
 
 //
 // doBatchWrite
 //
-export async function doBatchWrite (tableName, items)
-{
-  let putReqItems = items.map((an_item) =>
-  {
+export async function doBatchWrite(tableName, items) {
+  let putReqItems = items.map((an_item) => {
     return {
       PutRequest: {
         Item: an_item,
@@ -104,37 +118,23 @@ export async function doBatchWrite (tableName, items)
     RequestItems: requestItems,
   };
 
-  //console.log("Prepare to write:")
-  //console.log(items);
-
-  try
-  {
+  try {
     const result = await call("batchWrite", params);
 
-    if (result)
-    {
+    if (result) {
       return result;
-    } else
-    {
+    } else {
       console.log("batchWrite seems to have returned empty result.");
       return null;
     }
-  } catch (e)
-  {
+  } catch (e) {
     console.log("batchWrite error:");
     console.log(e.message);
     return null;
   }
 }
 
-export async function doBatchRead (tableName, inputKeys)
-{
-  /*let reqItems = inputKeys.map(inputKey => {
-    return { id: inputKey, sortKey: 'article' };
-  });*/
-
-  //console.log(reqItems);
-
+export async function doBatchRead(tableName, inputKeys) {
   console.log(inputKeys.length);
 
   const params = {
@@ -147,26 +147,21 @@ export async function doBatchRead (tableName, inputKeys)
   console.log("Prepare to write:");
   console.log(params);
 
-  try
-  {
+  try {
     const result = await call("batchGet", params);
-    if (result)
-    {
+    if (result) {
       return result;
-    } else
-    {
+    } else {
       console.log("doBatchRead: batchGet seems to have returned empty result.");
       return null;
     }
-  } catch (e)
-  {
+  } catch (e) {
     console.error("doBatchRead error: " + e.message);
     return null;
   }
 }
 
-async function queryIndexForCategory (categoryName, maxResultLimit)
-{
+async function queryIndexForCategory(categoryName, maxResultLimit) {
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
     IndexName: defs.WN_STR_KEY_AMOUNT_INDEX,
@@ -178,26 +173,20 @@ async function queryIndexForCategory (categoryName, maxResultLimit)
     ScanIndexForward: false,
   };
 
-  try
-  {
+  try {
     const result = await call("query", params);
 
-    if (result && result.Items)
-    {
+    if (result && result.Items) {
       return result.Items;
-    } else
-    {
+    } else {
       console.log("doQuery: Query returned empty result.");
       return [];
     }
-  } catch (e)
-  {
-    if (e.code === "ResourceNotFoundException")
-    {
+  } catch (e) {
+    if (e.code === "ResourceNotFoundException") {
       console.log("doQuery: error: ResourceNotFoundException");
       return null;
-    } else
-    {
+    } else {
       console.log("doQuery: error: ");
       console.log(e.message);
       return null;
@@ -205,57 +194,45 @@ async function queryIndexForCategory (categoryName, maxResultLimit)
   }
 }
 
-export async function queryArticles (articleKeys)
-{
+export async function queryArticles(articleKeys) {
   let batchReadResult = await doBatchRead(defs.WN_STR_KEY_TABLE, articleKeys);
 
   console.log("batchReadResult: ", batchReadResult);
   console.log(batchReadResult.Responses[defs.WN_STR_KEY_TABLE]);
 
-  if (batchReadResult && batchReadResult.Responses)
-  {
+  if (batchReadResult && batchReadResult.Responses) {
     let articleItems = batchReadResult.Responses[defs.WN_STR_KEY_TABLE];
 
-    if (articleItems)
-    {
+    if (articleItems) {
       return articleItems;
     }
   }
   return null;
 }
 
-export async function doQueryNewsFeed (rssUrl, oldestTS)
-{
+export async function doQueryNewsFeed(rssUrl, oldestTS) {
   let indexItems = await queryIndexForCategory(
     rssUrl,
-    defs.GET_NEWS_FEED_MAX_LIMIT
+    defs.GET_NEWS_FEED_MAX_LIMIT,
   );
 
   console.log("indexItems: ", indexItems);
 
-  //det funkar hit
-
-  if (indexItems && indexItems.length > 0)
-  {
-    let articleKeys = indexItems.map((indexItem) =>
-    {
+  if (indexItems && indexItems.length > 0) {
+    let articleKeys = indexItems.map((indexItem) => {
       let { id, sortKey } = indexItem;
-      if (id && sortKey)
-      {
+      if (id && sortKey) {
         return { id, sortKey };
-      } else
-      {
+      } else {
         return null;
       }
     });
 
     console.log("yaboy: ", articleKeys);
 
-    // If we failed to extract irl and rssUrl above, filter out those entries
     articleKeys = articleKeys.filter((articleKey) => articleKey != null);
 
-    if (!articleKeys || articleKeys.length < 1)
-    {
+    if (!articleKeys || articleKeys.length < 1) {
       console.error("dynamodb-lib.doQueryNewsFeed: Got no items from index");
       return null;
     }
@@ -268,22 +245,8 @@ export async function doQueryNewsFeed (rssUrl, oldestTS)
   return null;
 }
 
-/**
-
- * Fetching articles from 3 different APIs using the "fetchArticlesOld" function.
-
- * This API handles all the magic today:
-
- *  - Retrieves articles from multiple sources
-
- *  - Organizes and presents them beautifully on the front end
-
- *  - Delivers a seamless and engaging user experience
-
- */
 // Fetch the 100 latest added article items from DynamoDB.
-export async function fetchLatestArticles ()
-{
+export async function fetchLatestArticles() {
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
     IndexName: defs.WN_STR_KEY_AMOUNT_INDEX,
@@ -292,63 +255,44 @@ export async function fetchLatestArticles ()
       ":sortKey": "article",
     },
     Limit: 100,
-    ScanIndexForward: false, // Sort in descending order to get the latest articles
+    ScanIndexForward: false,
   };
-  try
-  {
+  try {
     const result = await call("query", params);
-    if (result && result.Items)
-    {
+    if (result && result.Items) {
       return result.Items;
-    } else
-    {
+    } else {
       console.error("Fetch latest articles: Query returned empty result.");
       return [];
     }
-  } catch (e)
-  {
+  } catch (e) {
     console.error("Fetch latest articles: Error - " + e.message);
     return [];
   }
 }
 
 // Check RSS feeds for new articles.
-export async function checkAndAddNewArticles (rssFeeds)
-{
+export async function checkAndAddNewArticles(rssFeeds) {
   const newArticles = [];
-  for (const rssFeed of rssFeeds)
-  {
-
+  for (const rssFeed of rssFeeds) {
     const articles = await doQueryNewsFeed(rssFeed.url, rssFeed.oldestTS);
-    if (articles && articles.length > 0)
-    {
-
-      for (const article of articles)
-      {
-        // Check if the article is not already in DynamoDB
+    if (articles && articles.length > 0) {
+      for (const article of articles) {
         const exists = await checkIfArticleExists(article.id);
-        if (!exists)
-        {
-          // Add the article to the list of new articles
+        if (!exists) {
           newArticles.push(article);
         }
       }
     }
   }
 
-  // Add new articles to DynamoDB
-  if (newArticles.length > 0)
-  {
+  if (newArticles.length > 0) {
     await doBatchWrite(defs.WN_STR_KEY_TABLE, newArticles);
-
   }
   return newArticles;
 }
 
-// Helper function to check if an article exists in DynamoDB
-
-async function checkIfArticleExists (articleId)
-{
+async function checkIfArticleExists(articleId) {
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
     Key: {
@@ -356,12 +300,10 @@ async function checkIfArticleExists (articleId)
       sortKey: "article",
     },
   };
-  try
-  {
+  try {
     const result = await call("get", params);
-    return !!result.Item; // Return true if the item exists, false otherwise
-  } catch (e)
-  {
+    return !!result.Item;
+  } catch (e) {
     console.error("Check if article exists: Error - " + e.message);
     return false;
   }

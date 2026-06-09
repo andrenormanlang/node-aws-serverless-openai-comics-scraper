@@ -1,0 +1,435 @@
+{
+    "Records": [
+        {
+            "eventID": "f04c069917c2a78a768050a4b706a9bf",
+            "eventName": "MODIFY",
+            "eventVersion": "1.1",
+            "eventSource": "aws:dynamodb",
+            "awsRegion": "eu-west-1",
+            "dynamodb": {
+                "ApproximateCreationDateTime": 1623515861,
+                "Keys": {
+                    "sortKey": {
+                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#a1bb39c0-c541-11eb-979c-1d8e41b16fc0"
+                    },
+                    "id": {
+                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                    }
+                },
+                "NewImage": {
+                    "msg": {
+                        "S": "Me again"
+                    },
+                    "image": {
+                        "S": "https://ra.ac.ae/wp-content/uploads/2017/02/user-icon-placeholder.png"
+                    },
+                    "userPic": {
+                        "S": "https://ra.ac.ae/wp-content/uploads/2017/02/user-icon-placeholder.png"
+                    },
+                    "userNickname": {
+                        "S": "AlexeY Snisarenko"
+                    },
+                    "subjectPts": {
+                        "L": [
+                            {
+                                "M": {
+                                    "userDislikes": {
+                                        "L": []
+                                    },
+                                    "value": {
+                                        "N": "1"
+                                    },
+                                    "userLikes": {
+                                        "L": [
+                                            {
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                            }
+                                        ]
+                                    },
+                                    "subjectId": {
+                                        "N": "88"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "userDislikes": {
+                                        "L": []
+                                    },
+                                    "value": {
+                                        "N": "1"
+                                    },
+                                    "userLikes": {
+                                        "L": [
+                                            {
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                            }
+                                        ]
+                                    },
+                                    "subjectId": {
+                                        "N": "1"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "userDislikes": {
+                                        "L": []
+                                    },
+                                    "value": {
+                                        "N": "1"
+                                    },
+                                    "userLikes": {
+                                        "L": [
+                                            {
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                            }
+                                        ]
+                                    },
+                                    "subjectId": {
+                                        "N": "97"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "userDislikes": {
+                                        "L": []
+                                    },
+                                    "value": {
+                                        "S": "3.0"
+                                    },
+                                    "userLikes": {
+                                        "L": []
+                                    },
+                                    "subjectId": {
+                                        "N": "90"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "userDislikes": {
+                                        "L": []
+                                    },
+                                    "value": {
+                                        "N": "1"
+                                    },
+                                    "userLikes": {
+                                        "L": [
+                                            {
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                            }
+                                        ]
+                                    },
+                                    "subjectId": {
+                                        "N": "91"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "userDislikes": {
+                                        "L": []
+                                    },
+                                    "value": {
+                                        "N": "1"
+                                    },
+                                    "userLikes": {
+                                        "L": [
+                                            {
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                            }
+                                        ]
+                                    },
+                                    "subjectId": {
+                                        "N": "42"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "userDislikes": {
+                                        "L": []
+                                    },
+                                    "value": {
+                                        "N": "1"
+                                    },
+                                    "userLikes": {
+                                        "L": [
+                                            {
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                            }
+                                        ]
+                                    },
+                                    "subjectId": {
+                                        "N": "28"
+                                    }
+                                }
+                            }
+                        ]
+                    },
+                    "userId": {
+                        "S": "eu-north-1:c9cb8dd3-cf3e-447a-9b42-a95840afc62e"
+                    },
+                    "feedback": {
+                        "M": {
+                            "reliable": {
+                                "M": {
+                                    "users": {
+                                        "L": []
+                                    }
+                                }
+                            },
+                            "unreliable": {
+                                "M": {
+                                    "users": {
+                                        "L": []
+                                    }
+                                }
+                            },
+                            "dislikes": {
+                                "M": {
+                                    "users": {
+                                        "L": []
+                                    }
+                                }
+                            },
+                            "likes": {
+                                "M": {
+                                    "users": {
+                                        "L": [
+                                            {
+                                                "S": "previous"
+                                            },
+                                            {
+                                                "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ttlTS": {
+                        "N": "1625495524"
+                    },
+                    "deleted": {
+                        "BOOL": false
+                    },
+                    "sortKey": {
+                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#a1bb39c0-c541-11eb-979c-1d8e41b16fc0"
+                    },
+                    "postedTs": {
+                        "N": "1622817124"
+                    },
+                    "id": {
+                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                    },
+                    "ttlDbg": {
+                        "S": "Mon Jul 05 2021, 14:32:04 GMT+0000 (Coordinated Universal Time)"
+                    },
+                    "support": {
+                        "L": []
+                    }
+                },
+                "OldImage": {
+                    "msg": {
+                        "S": "Me again"
+                    },
+                    "image": {
+                        "S": "https://ra.ac.ae/wp-content/uploads/2017/02/user-icon-placeholder.png"
+                    },
+                    "userPic": {
+                        "S": "https://ra.ac.ae/wp-content/uploads/2017/02/user-icon-placeholder.png"
+                    },
+                    "userNickname": {
+                        "S": "AlexeY Snisarenko"
+                    },
+                    "subjectPts": {
+                        "L": []
+                    },
+                    "userId": {
+                        "S": "eu-north-1:c9cb8dd3-cf3e-447a-9b42-a95840afc62e"
+                    },
+                    "feedback": {
+                        "M": {
+                            "reliable": {
+                                "M": {
+                                    "users": {
+                                        "L": []
+                                    }
+                                }
+                            },
+                            "unreliable": {
+                                "M": {
+                                    "users": {
+                                        "L": []
+                                    }
+                                }
+                            },
+                            "dislikes": {
+                                "M": {
+                                    "users": {
+                                        "L": []
+                                    }
+                                }
+                            },
+                            "likes": {
+                                "M": {
+                                    "users": {
+                                        "L": [
+                                            {
+                                                "S": "previous"
+                                            }
+                                        ]
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "ttlTS": {
+                        "N": "1625495524"
+                    },
+                    "deleted": {
+                        "BOOL": false
+                    },
+                    "sortKey": {
+                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#a1bb39c0-c541-11eb-979c-1d8e41b16fc0"
+                    },
+                    "postedTs": {
+                        "N": "1622817124"
+                    },
+                    "id": {
+                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                    },
+                    "ttlDbg": {
+                        "S": "Mon Jul 05 2021, 14:32:04 GMT+0000 (Coordinated Universal Time)"
+                    },
+                    "support": {
+                        "L": []
+                    }
+                },
+                "SequenceNumber": "869261700000000029788253151",
+                "SizeBytes": 2178,
+                "StreamViewType": "NEW_AND_OLD_IMAGES"
+            },
+            "eventSourceARN": "arn:aws:dynamodb:eu-west-1:077911111907:table/notes/stream/2021-06-11T05:15:10.766"
+        },
+        {
+            "eventID": "f04c069917c2a78a768050a4b706a9bf",
+            "eventName": "MODIFY",
+            "eventVersion": "1.1",
+            "eventSource": "aws:dynamodb",
+            "awsRegion": "eu-west-1",
+            "dynamodb": {
+                "ApproximateCreationDateTime": 1623515861,
+                "Keys": {
+                    "sortKey": {
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                    },
+                    "id": {
+                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#commentFeedback"
+                    }
+                },
+                "NewImage": {
+                    "sortKey": {
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                    },
+                    "id": {
+                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#commentFeedback"
+                    },
+                    "likes": {
+                        "L": [
+                            {
+                                "M": {
+                                    "sortKey": {
+                                        "S": "0#03285320-b7da-11eb-b209-2573d4fd34ee"
+                                    },
+                                    "id": {
+                                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "sortKey": {
+                                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#51088020-b93c-11eb-8ad0-119afb6b5200"
+                                    },
+                                    "id": {
+                                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "sortKey": {
+                                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#b8cb0520-c53a-11eb-bdd5-a94db61c465c"
+                                    },
+                                    "id": {
+                                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "sortKey": {
+                                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#a1bb39c0-c541-11eb-979c-1d8e41b16fc0"
+                                    },
+                                    "id": {
+                                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "OldImage": {
+                    "sortKey": {
+                        "S": "eu-north-1:8d1fd4ca-7589-497d-849c-b7e43dcac682"
+                    },
+                    "id": {
+                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#commentFeedback"
+                    },
+                    "likes": {
+                        "L": [
+                            {
+                                "M": {
+                                    "sortKey": {
+                                        "S": "0#03285320-b7da-11eb-b209-2573d4fd34ee"
+                                    },
+                                    "id": {
+                                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "sortKey": {
+                                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#51088020-b93c-11eb-8ad0-119afb6b5200"
+                                    },
+                                    "id": {
+                                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                                    }
+                                }
+                            },
+                            {
+                                "M": {
+                                    "sortKey": {
+                                        "S": "03285320-b7da-11eb-b209-2573d4fd34ee#b8cb0520-c53a-11eb-bdd5-a94db61c465c"
+                                    },
+                                    "id": {
+                                        "S": "https://www.svt.se/nyheter/lokalt/sormland/anhallna-misstankta-for-brandattack-har-slappts#msg"
+                                    }
+                                }
+                            }
+                        ]
+                    }
+                },
+                "SequenceNumber": "872129100000000012011761536",
+                "SizeBytes": 1712,
+                "StreamViewType": "NEW_AND_OLD_IMAGES"
+            }
+        }
+    ]
+}
