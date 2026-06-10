@@ -2,7 +2,9 @@ const fetch = require("node-fetch");
 var xmldoc = require("xmldoc");
 
 export async function downloadData(the_url) {
-  let response = await fetch.default(the_url);
+  let response = await fetch.default(the_url, {
+    headers: { "User-Agent": "Mozilla/5.0 (compatible; RSS reader)" },
+  });
   let resultText = await response.text();
   return resultText;
 }

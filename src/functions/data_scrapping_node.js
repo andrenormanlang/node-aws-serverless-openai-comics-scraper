@@ -607,14 +607,20 @@ const get_data_from_dynamoDb = async function () {
     "https://www.cbr.com/feed/",
     "https://bleedingcool.com/feed/",
     "https://www.comicsbeat.com/feed/",
-    "https://icv2.com/articles/news/rss.xml",
+    "https://icv2.com/rss",
     "https://aiptcomics.com/feed/",
-    "https://www.multiversitycomics.com/feed/",
-    "https://dccomicsnews.com/feed/",
-    "https://www.gamesradar.com/comics/rss/",
-    "https://www.superherohype.com/feed/",
     "https://www.comicbookherald.com/feed/",
-    "https://comicbookroundup.com/feed/rss2/",
+    "https://www.graphicpolicy.com/feed/",
+    "https://brokenfrontier.com/feed/",
+    "https://13thdimension.com/feed/",
+    "https://www.denofgeek.com/comics/feed/",
+    "https://comicbook.com/category/comics/feed/",
+    "https://www.comicsalliance.com/feed/",
+    // "https://www.multiversitycomics.com/feed/", // ETIMEDOUT from eu-north-1
+    // "https://dccomicsnews.com/feed/",           // feed inactive since March 2026
+    // "https://www.gamesradar.com/comics/rss/",   // 404 — no comics-specific feed exists
+    // "https://www.superherohype.com/feed/",      // 403 — blocks all RSS access
+    // "https://comicbookroundup.com/feed/rss2/",  // 404 — feed gone
   ];
 
   // const response = await dynamodb.scan(params).promise();

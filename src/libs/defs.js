@@ -22,7 +22,7 @@ export const ARTICLE_LEGACY_THRESHOLD_DAYS = 8; // Articles older than this don'
 
 // Settings for get articles handler
 export const GET_MIN_TS_BETWEEN_SYNCH = 60 * 30;
-export const GET_HOURS_BACK_FOR_DB_UPDATE = 16; // 48
+export const GET_HOURS_BACK_FOR_DB_UPDATE = 48;
 export const GET_HOURS_BACK_FOR_QUERY = 6;
 export const GET_NEWS_FEED_MAX_LIMIT = 100;
 

@@ -66,6 +66,7 @@ functions:
   # ── Scheduled: ingest RSS articles every 15 min ──────────────────────────
   add_articles:
     handler: src/functions/add_articles.main
+    timeout: 60
     events:
       - schedule: rate(15 minutes)
 
