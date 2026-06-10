@@ -6,11 +6,11 @@ import {
 import * as dynamoDbLib from "../src/libs/dynamodb-lib";
 import * as dlXmlUtils from "../src/libs/dl_xml_utils";
 import fetch from "node-fetch";
+import { load as cheerioLoad } from "cheerio";
 import {
   rephrase_data_from_openai,
   classify_subject_from_openai,
 } from "../src/libs/rephrase-lib";
-import { JSDOM } from "jsdom";
 
 jest.mock("../src/libs/dynamodb-lib");
 jest.mock("../src/libs/dl_xml_utils");
@@ -28,11 +28,11 @@ const rssItemsBySortKey = new Map();
 const rewrittenIds = new Set();
 const updateParams = [];
 
-const GOOD_CANONICAL_URL = "https://www.dn.se/sverige/sample-article";
+const GOOD_CANONICAL_URL = "https://bleedingcool.com/comics/sample-article";
 const GOOD_VARIANT_URL =
-  "https://www.dn.se/sverige/sample-article?utm_source=newsletter&utm_medium=email";
-const PAYWALL_VARIANT_URL = "https://www.dn.se/paywall-article?utm_source=feed";
-const PAYWALL_CANONICAL_URL = "https://www.dn.se/paywall-article";
+  "https://bleedingcool.com/comics/sample-article?utm_source=newsletter&utm_medium=email";
+const PAYWALL_VARIANT_URL = "https://bleedingcool.com/paywall-article?utm_source=feed";
+const PAYWALL_CANONICAL_URL = "https://bleedingcool.com/paywall-article";
 
 function buildRssItem(link, title = "Example title") {
   return {
@@ -140,22 +140,24 @@ beforeEach(() => {
   }));
 
   // Provide add_articles with deterministic RSS rows.
+  // bleedingcool.com/feed/ emits multiple items to test deduplication and
+  // paywall filtering; all other feeds emit a single duplicate URL variant.
   dlXmlUtils.extractNewsDataFromXMLChannelNode.mockImplementation(
     (channelNode) => {
       const rssUrl = channelNode.rssUrl;
 
-      if (rssUrl.includes("dn.se/nyheter/m/rss")) {
+      if (rssUrl.includes("bleedingcool.com/feed")) {
         return {
           items: [
-            buildRssItem(GOOD_VARIANT_URL, "DN good variant"),
-            buildRssItem(GOOD_CANONICAL_URL, "DN good canonical"),
-            buildRssItem(PAYWALL_VARIANT_URL, "DN paywall"),
+            buildRssItem(GOOD_VARIANT_URL, "BC good variant"),
+            buildRssItem(GOOD_CANONICAL_URL, "BC good canonical"),
+            buildRssItem(PAYWALL_VARIANT_URL, "BC paywall"),
           ],
           channelHeader: {
-            title: "DN",
-            description: "DN feed",
+            title: "Bleeding Cool",
+            description: "BC feed",
             lastBuildDate: "Mon, 3 Jun 2024 00:06:05 +0200",
-            imageUrl: "https://example.com/dn.jpg",
+            imageUrl: "https://example.com/bc.jpg",
           },
         };
       }
@@ -187,14 +189,14 @@ beforeEach(() => {
 
   const goodArticleBody = [
     "This is the first long paragraph with enough factual content to be treated as real article text.",
-    "Foto: TT",
-    "Bildtext: Crowd at the station",
-    "Las mer",
-    "Lank: https://example.com/kalla",
-    "www.example.com/relaterat",
-    "Folj oss pa Facebook",
-    "Oppna bild i helskarm",
-    "Meny | Nyheter | Sport",
+    "Photo: TT",
+    "Image caption: Crowd at the station",
+    "Read more",
+    "https://example.com/source",
+    "www.example.com/related",
+    "Follow us on Facebook",
+    "open image in full screen",
+    "Navigation | News | Sport",
     "Duplicate line should only remain once.",
     "Duplicate line should only remain once.",
     "This is the second long paragraph with additional details, names, numbers, and context to exceed thresholds.",
@@ -285,17 +287,14 @@ describe("data_scrapping_node improvements with add_articles integration", () =>
       },
     ]);
     expect(rewrittenSlug.length).toBeLessThanOrEqual(100);
-    expect(cleanedBody).not.toMatch(/foto\s*:/i);
-    expect(cleanedBody.toLowerCase()).not.toContain("bildtext");
-    expect(cleanedBody.toLowerCase()).not.toContain("las mer");
-    expect(cleanedBody.toLowerCase()).not.toContain("lank:");
+    expect(cleanedBody).not.toMatch(/photo\s*:/i);
+    expect(cleanedBody.toLowerCase()).not.toContain("image caption");
+    expect(cleanedBody.toLowerCase()).not.toContain("read more");
     expect(cleanedBody.toLowerCase()).not.toContain("https://");
-    expect(cleanedBody.toLowerCase()).not.toContain(
-      "www.example.com/relaterat"
-    );
-    expect(cleanedBody.toLowerCase()).not.toContain("folj oss");
-    expect(cleanedBody.toLowerCase()).not.toContain("oppna bild i helskarm");
-    expect(cleanedBody.toLowerCase()).not.toContain("meny | nyheter | sport");
+    expect(cleanedBody.toLowerCase()).not.toContain("www.example.com/related");
+    expect(cleanedBody.toLowerCase()).not.toContain("follow us");
+    expect(cleanedBody.toLowerCase()).not.toContain("open image in full screen");
+    expect(cleanedBody.toLowerCase()).not.toContain("navigation |");
     expect(
       (cleanedBody.match(/Duplicate line should only remain once\./g) || [])
         .length
@@ -314,10 +313,10 @@ describe("data_scrapping_node improvements with add_articles integration", () =>
 describe("data_scrapping_node helper unit tests", () => {
   test("canonicalize_article_url removes tracking params, hash, and trailing slash", () => {
     const input =
-      "https://www.dn.se/sverige/sample-article/?utm_source=newsletter&utm_medium=email&keep=1#hero";
+      "https://bleedingcool.com/comics/sample-article/?utm_source=newsletter&utm_medium=email&keep=1#hero";
 
     expect(canonicalize_article_url(input)).toBe(
-      "https://www.dn.se/sverige/sample-article?keep=1"
+      "https://bleedingcool.com/comics/sample-article?keep=1"
     );
   });
 
@@ -337,28 +336,28 @@ describe("data_scrapping_node helper unit tests", () => {
   test("clean_article_text strips junk lines and dedupes repeated lines", () => {
     const raw = [
       "",
-      "Foto: TT",
-      "Läs mer",
-      "Detta är kvar.",
-      "Detta är kvar.",
-      "Öppna bild i helskärm",
-      "Andra faktaraden är kvar.",
+      "Photo: TT",
+      "Read more",
+      "This line stays.",
+      "This line stays.",
+      "open image in full screen",
+      "Second factual line stays.",
     ].join("\n");
 
     const cleaned = clean_article_text(raw);
-    expect(cleaned).toBe("Detta är kvar.\nAndra faktaraden är kvar.");
+    expect(cleaned).toBe("This line stays.\nSecond factual line stays.");
   });
 
   test("is_likely_non_article_page avoids false positives from generic words in body", () => {
     const html =
       '<html><head><title>Policy analysis</title><meta property="og:type" content="article" /></head><body><article>ok</article></body></html>';
-    const document = new JSDOM(html).window.document;
+    const $ = cheerioLoad(html);
     const text = (
       "The political analysis discusses a proposed 404 reform and quotes the phrase access denied in context. " +
       "This is still a normal article body with factual content and no paywall signals. "
     ).repeat(6);
 
-    expect(is_likely_non_article_page(document, text)).toBe(false);
+    expect(is_likely_non_article_page($, text)).toBe(false);
   });
 
   test("is_likely_non_article_page detects ld+json paywall signal", () => {
@@ -375,91 +374,93 @@ describe("data_scrapping_node helper unit tests", () => {
       </html>
     `;
 
-    const document = new JSDOM(html).window.document;
+    const $ = cheerioLoad(html);
     const text = (
-      "Detta är en längre textmassa med flera meningar som överstiger längdgränsen. " +
-      "Prenumerationsvillkoren för digitalt abonnemang gäller för denna artikel. "
+      "This is a longer article body with several sentences exceeding the minimum length threshold. " +
+      "Subscription terms for digital access apply to this article content. "
     ).repeat(8);
 
-    expect(is_likely_non_article_page(document, text)).toBe(true);
+    expect(is_likely_non_article_page($, text)).toBe(true);
   });
 
   test("is_likely_non_article_page keeps article pages with login promo blocks", () => {
     const html = `
       <html>
         <head>
-          <title>Nya bilder från Nasa visar delar av månen</title>
+          <title>New images from NASA show unseen parts of the moon</title>
           <meta property="og:type" content="article" />
         </head>
         <body>
           <article>
-            Nya bilder från Nasa visar delar av månen som ingen någonsin sett förut.
-            Bilderna togs under raketen Artemis II passage över månens baksida.
-            Få ut mer av DN som inloggad. Logga in. Skapa konto gratis. Prenumerera.
+            New images from NASA show parts of the moon that no one has ever seen before.
+            The images were taken during the Artemis II rocket's passage over the far side of the moon.
+            Get more out of the site when logged in. Log in. Create a free account. Subscribe.
           </article>
         </body>
       </html>
     `;
 
-    const document = new JSDOM(html).window.document;
+    const $ = cheerioLoad(html);
     const text = (
-      "Nya bilder från Nasa visar delar av månen som ingen någonsin sett förut. " +
-      "Bilderna togs under raketen Artemis II passage över månens baksida. " +
-      "Få ut mer av DN som inloggad. Logga in. Skapa konto gratis. Prenumerera. "
+      "New images from NASA show parts of the moon that no one has ever seen before. " +
+      "The images were taken during the Artemis II rocket passage over the far side of the moon. " +
+      "Get more out of the site when logged in. Create a free account. Subscribe. "
     ).repeat(8);
 
-    expect(is_likely_non_article_page(document, text)).toBe(false);
+    expect(is_likely_non_article_page($, text)).toBe(false);
   });
 
   test("is_likely_non_article_page does not reject pages with global login widget only", () => {
     const html = `
       <html>
         <head>
-          <title>Senaste nytt om politik</title>
+          <title>Latest comics news</title>
           <meta property="og:type" content="article" />
         </head>
         <body>
           <header>
-            <form action="/konto/login"><input type="password" /></form>
+            <form action="/account/login"><input type="password" /></form>
           </header>
           <article>
-            En langre nyhetsartikel med flera stycken och saklig information.
-            Texten fortsatter med fler detaljer om handelseforlopp, bakgrund och konsekvenser.
+            A longer comics news article with several paragraphs and factual information.
+            The text continues with more details about plot, background, and consequences.
           </article>
         </body>
       </html>
     `;
 
-    const document = new JSDOM(html).window.document;
+    const $ = cheerioLoad(html);
     const text = (
-      "En langre nyhetsartikel med flera stycken och saklig information. " +
-      "Texten fortsatter med fler detaljer om handelseforlopp, bakgrund och konsekvenser. "
+      "A longer comics news article with several paragraphs and factual information. " +
+      "The text continues with more details about plot, background, and consequences. "
     ).repeat(8);
 
-    expect(is_likely_non_article_page(document, text)).toBe(true);
+    // A login widget alone (without noindex + access signal) must NOT cause rejection.
+    expect(is_likely_non_article_page($, text)).toBe(false);
   });
 
-  test("is_likely_non_article_page rejects pages with explicit paywall copy", () => {
+  test("is_likely_non_article_page rejects pages with explicit paywall copy and noindex", () => {
     const html = `
       <html>
         <head>
-          <title>Las gratis i 3 manader</title>
+          <title>Premium comics coverage</title>
+          <meta name="robots" content="noindex" />
           <meta property="og:type" content="article" />
         </head>
         <body>
           <article>
-            Las upp alla artiklar. Ar du redan prenumerant, logga in for att fortsatta lasa.
+            Subscribe to continue reading exclusive comics analysis and insider insights.
           </article>
         </body>
       </html>
     `;
 
-    const document = new JSDOM(html).window.document;
+    const $ = cheerioLoad(html);
     const text = (
-      "Las upp alla artiklar och fortsatt lasa med prenumeration. " +
-      "Ar du redan prenumerant logga in. "
+      "Subscribe to continue reading exclusive comics analysis and insider insights. " +
+      "This content is available to subscribers only. "
     ).repeat(6);
 
-    expect(is_likely_non_article_page(document, text)).toBe(true);
+    expect(is_likely_non_article_page($, text)).toBe(true);
   });
 });

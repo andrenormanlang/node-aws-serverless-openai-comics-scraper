@@ -398,10 +398,12 @@ export async function main() {
         console.log("checking: ", rssUrl);
         let metaDataForSource = await queryMetaDataForSource(rssUrl);
         let { mostRecentItemTS } = metaDataForSource;
-        let { channelHeader, newMostRecentItemTS } = await updateDB(
-          rssUrl,
-          mostRecentItemTS
-        );
+        const updateResult = await updateDB(rssUrl, mostRecentItemTS);
+        if (!updateResult) {
+          console.log(`updateDB returned null for ${rssUrl}, skipping`);
+          return;
+        }
+        let { channelHeader, newMostRecentItemTS } = updateResult;
         let res;
         if (channelHeader) {
           res = await mark_db_updated(

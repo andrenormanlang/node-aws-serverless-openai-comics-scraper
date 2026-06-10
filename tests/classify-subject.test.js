@@ -142,7 +142,7 @@ test("forces a best candidate when the first model response chooses zero", async
   expect(result).toBe(57);
   expect(fetch).toHaveBeenCalledTimes(2);
   const retryBody = JSON.parse(fetch.mock.calls[1][1].body);
-  expect(retryBody.messages[1].content).toMatch(/Returnera aldrig 0/);
+  expect(retryBody.messages[1].content).toMatch(/Never return 0/);
 });
 
 test("uses a local keyword fallback when OpenAI classification fails", async () => {

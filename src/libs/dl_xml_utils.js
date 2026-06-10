@@ -168,6 +168,23 @@ export function cleanAttribs(items) {
 export function parseStrTimestamp(str) {
   // TODO: Ta även hänsyn till time zone i slutet av str:  Mon, 3 Jun 2019 00:06:05 +0200
   let m = str.match(/(\d+).+(\w{3}).+(20\d{2}).+(\d{2}):(\d{2}):(\d{2})/);
+  if (!m) {
+    // Fallback: handle ISO 8601 and any format that Date can parse.
+    const ts = Date.parse(str);
+    if (!isNaN(ts)) {
+      const d = new Date(ts);
+      const monthNames = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+      return {
+        day: String(d.getUTCDate()),
+        month: d.getUTCMonth() + 1,
+        year: String(d.getUTCFullYear()),
+        hour: String(d.getUTCHours()).padStart(2, "0"),
+        minute: String(d.getUTCMinutes()).padStart(2, "0"),
+        second: String(d.getUTCSeconds()).padStart(2, "0"),
+      };
+    }
+    return null;
+  }
   //console.log(m);
   if (m && m.length == 7) {
     let month = 0;

@@ -20,10 +20,13 @@ afterAll(() => {
 // Helper: create a mock OpenAI response
 function mockOpenAIResponse(content) {
   return {
+    ok: true,
+    status: 200,
     json: () =>
       Promise.resolve({
         choices: [{ message: { content } }],
       }),
+    text: async () => String(content),
   };
 }
 
