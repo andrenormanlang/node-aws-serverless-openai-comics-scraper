@@ -92,6 +92,7 @@ function canonicalize_article_url(rawUrl) {
   try {
     const parsed = new URL(rawUrl);
     parsed.hash = "";
+    parsed.pathname = parsed.pathname.replace(/\/+$/, "") || "/";
 
     for (const param of TRACKING_QUERY_PARAMS) {
       parsed.searchParams.delete(param);
