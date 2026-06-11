@@ -41,6 +41,7 @@ const SELECTORS_BY_HOST = {
   "cbr.com": ["article", "div.entry-content", "main article"],
   "bleedingcool.com": ["article", "div.entry-content", "main article"],
   "comicsbeat.com": ["article", "div.entry-content", "main article"],
+  "icv2.com": ["div.article-text", "div.big-article"],
 };
 
 // Deterministic cleanup of obvious scraping noise before AI rewriting.
@@ -94,10 +95,6 @@ function canonicalize_article_url(rawUrl) {
 
     for (const param of TRACKING_QUERY_PARAMS) {
       parsed.searchParams.delete(param);
-    }
-
-    if (parsed.pathname.length > 1) {
-      parsed.pathname = parsed.pathname.replace(/\/+$/, "");
     }
 
     return parsed.toString();
@@ -600,8 +597,7 @@ async function get_article_data(url) {
 const get_data_from_dynamoDb = async function () {
   // const dynamodb = new AWS.DynamoDB.DocumentClient();
   const tableName = defs.WN_STR_KEY_TABLE;
-  const currentDateEpochTS = new Date().setHours(0, 0, 0, 0) / 1000;
-  // const currentDateEpochTS = 1738281600;
+  const currentDateEpochTS = Math.floor(Date.now() / 1000) - defs.GET_HOURS_BACK_FOR_DB_UPDATE * 3600;
 
   let rssUrls = [
     "https://www.cbr.com/feed/",
