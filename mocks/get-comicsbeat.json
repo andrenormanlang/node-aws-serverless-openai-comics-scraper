@@ -1,6 +1,6 @@
 {
   "pathParameters": {
-    "data": "%7B%22category%22%3A%201%7D"
+    "url": "%7B%22rssUrl%22%3A%22https%3A%2F%2Fwww.comicsbeat.com%2Ffeed%2F%22%7D"
   },
   "requestContext": {
     "identity": {

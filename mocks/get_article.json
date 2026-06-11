@@ -1,5 +1,13 @@
 {
   "pathParameters": {
-    "url": "https://www.svt.se/nyheter/lokalt/blekinge/mjallby-varvar-islandsk-mittfaltare"
+    "url": "https%3A%2F%2Fwww.cbr.com%2Favengers-endgame-loses-box-office-milestone-obsession%2F"
+  },
+  "queryStringParameters": {
+    "sortKey": "articles"
+  },
+  "requestContext": {
+    "identity": {
+      "cognitoIdentityId": "USER-SUB-1234"
+    }
   }
- }
+}

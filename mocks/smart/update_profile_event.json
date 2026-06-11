@@ -1,8 +1,0 @@
-{
-  "body": "{\"nickname\":\"Emil\",\"profilePic\":\"https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQ50PSv0wus6lu42feDApWVZkQOsy4LuuDB4TgBoUK1_Vzj5lTf\",\"imageKey\":\"1597907438426-8bc88a2b-6d78-4fa7-9142-793933a87d57.jpg\"}",
-  "requestContext": {
-    "identity": {
-      "cognitoIdentityId": "USER-SUB-1234"
-    }
-  }
-}

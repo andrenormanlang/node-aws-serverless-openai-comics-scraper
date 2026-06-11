@@ -1,4 +1,7 @@
 {
+  "pathParameters": {
+    "url": "%7B%22rssUrl%22%3A%22https%3A%2F%2Ficv2.com%2Frss%22%7D"
+  },
   "requestContext": {
     "identity": {
       "cognitoIdentityId": "USER-SUB-1234"

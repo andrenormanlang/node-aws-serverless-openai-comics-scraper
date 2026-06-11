@@ -1,8 +1,0 @@
-{
-  "body": "{\"action\":1, \"url\": \"https://www.dn.se/kultur-noje/lotta-olsson-tipsar-om-fem-nya-deckare/\"}",
-  "requestContext": {
-    "identity": {
-      "cognitoIdentityId": "USER-SUB-1234-3"
-    }
-  }
-}

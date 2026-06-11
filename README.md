@@ -51,17 +51,18 @@ TTL is enabled on the `ttlTS` attribute — articles expire **4 days** after ing
 
 | Source | Feed URL |
 | --- | --- |
-| Bleeding Cool | `https://bleedingcool.com/feed/` |
-| Comic Book Herald | `https://www.comicbookherald.com/feed/` |
 | CBR | `https://www.cbr.com/feed/` |
+| Bleeding Cool | `https://bleedingcool.com/feed/` |
 | The Beat | `https://www.comicsbeat.com/feed/` |
-| ICv2 | `https://icv2.com/articles/news/rss.xml` |
+| ICv2 | `https://icv2.com/rss` |
 | AIPT Comics | `https://aiptcomics.com/feed/` |
-| Multiversity Comics | `https://www.multiversitycomics.com/feed/` |
-| DC Comics News | `https://dccomicsnews.com/feed/` |
-| Games Radar (Comics) | `https://www.gamesradar.com/comics/rss/` |
-| Superhero Hype | `https://www.superherohype.com/feed/` |
-| Comic Book Roundup | `https://comicbookroundup.com/feed/rss2/` |
+| Comic Book Herald | `https://www.comicbookherald.com/feed/` |
+| Graphic Policy | `https://www.graphicpolicy.com/feed/` |
+| Broken Frontier | `https://brokenfrontier.com/feed/` |
+| 13th Dimension | `https://13thdimension.com/feed/` |
+| Den of Geek (Comics) | `https://www.denofgeek.com/comics/feed/` |
+| Comic Book (comicbook.com) | `https://comicbook.com/category/comics/feed/` |
+| Comics Alliance | `https://www.comicsalliance.com/feed/` |
 
 ---
 
@@ -91,7 +92,7 @@ Returns the AI-rewritten article for a given article URL.
 ## Prerequisites
 
 - Node.js 24+
-- AWS CLI configured with the `andrenormanlang+aws2` profile
+- AWS CLI configured with an IAM profile that has DynamoDB and SSM access
 - Serverless Framework account (access key for v4)
 
 ---
@@ -115,7 +116,7 @@ Create the deployment bucket:
 ```bash
 aws s3 mb s3://retropop-dispatch-serverless-deploys \
   --region eu-north-1 \
-  --profile andrenormanlang+aws2
+  --profile <your-aws-profile>
 ```
 
 Store the OpenAI key in SSM (CloudFormation resolves it at deploy time):
@@ -127,7 +128,7 @@ MSYS_NO_PATHCONV=1 aws ssm put-parameter \
   --value "<your-openai-api-key>" \
   --type String \
   --region eu-north-1 \
-  --profile andrenormanlang+aws2
+  --profile <your-aws-profile>
 ```
 
 ```powershell
@@ -137,7 +138,7 @@ aws ssm put-parameter `
   --value '<your-openai-api-key>' `
   --type String `
   --region eu-north-1 `
-  --profile andrenormanlang+aws2
+  --profile <your-aws-profile>
 ```
 
 > Parameters must be type `String` — CloudFormation's `{{resolve:ssm:...}}` syntax does not support `SecureString` in Lambda environment variables.
@@ -147,7 +148,7 @@ aws ssm put-parameter `
 ## Deploy
 
 ```bash
-AWS_PROFILE=andrenormanlang+aws2 npx serverless deploy \
+AWS_PROFILE=<your-aws-profile> npx serverless deploy \
   --stage dev \
   --region eu-north-1
 ```
@@ -155,7 +156,7 @@ AWS_PROFILE=andrenormanlang+aws2 npx serverless deploy \
 ### Remove a deployment
 
 ```bash
-AWS_PROFILE=andrenormanlang+aws2 npx serverless remove \
+AWS_PROFILE=<your-aws-profile> npx serverless remove \
   --stage dev \
   --region eu-north-1
 ```
@@ -167,10 +168,39 @@ AWS_PROFILE=andrenormanlang+aws2 npx serverless remove \
 ## Local development
 
 ```bash
-AWS_PROFILE=andrenormanlang+aws2 npx serverless offline --stage dev
+AWS_PROFILE=<your-aws-profile> npx serverless offline --stage dev
 ```
 
 API available at `http://localhost:3000`.
+
+---
+
+## Local testing with mocks
+
+The `mocks/` directory contains pre-built Lambda event payloads for each HTTP handler. Use `serverless invoke local` to run a handler against the real DynamoDB table without deploying:
+
+```bash
+# Feed articles for a given RSS source
+AWS_PROFILE=<your-aws-profile> npx serverless invoke local --function get --path mocks/get-cbr.json
+AWS_PROFILE=<your-aws-profile> npx serverless invoke local --function get --path mocks/get-bleedingcool.json
+AWS_PROFILE=<your-aws-profile> npx serverless invoke local --function get --path mocks/get-comicsbeat.json
+AWS_PROFILE=<your-aws-profile> npx serverless invoke local --function get --path mocks/get-icv2.json
+
+# A single AI-rewritten article (URL must exist in DynamoDB)
+AWS_PROFILE=<your-aws-profile> npx serverless invoke local --function smart_get_article --path mocks/get_article.json
+```
+
+The scheduled scrapers have no event payload and can be invoked directly:
+
+```bash
+# Ingest RSS articles into DynamoDB
+AWS_PROFILE=<your-aws-profile> npx serverless invoke local --function add_articles
+
+# Scrape and AI-rewrite unprocessed articles (runs up to 5 min)
+AWS_PROFILE=<your-aws-profile> npx serverless invoke local --function data_scrapping_node
+```
+
+> `get_article.json` contains a real article URL from the CBR feed. If the article has expired (TTL is 4 days), replace the `url` value with a fresh URL from the output of `get-cbr.json`.
 
 ---
 
@@ -180,12 +210,12 @@ After a fresh deploy, invoke the scrapers manually to populate data without wait
 
 ```bash
 # Ingest RSS articles
-AWS_PROFILE=andrenormanlang+aws2 aws lambda invoke \
+AWS_PROFILE=<your-aws-profile> aws lambda invoke \
   --function-name retro-pop-dispatch-dev-add_articles \
   --region eu-north-1 /dev/null
 
 # Scrape + AI-rewrite (runs up to 5 min)
-AWS_PROFILE=andrenormanlang+aws2 aws lambda invoke \
+AWS_PROFILE=<your-aws-profile> aws lambda invoke \
   --function-name retro-pop-dispatch-dev-data_scrapping_node \
   --region eu-north-1 /dev/null
 ```

@@ -1,9 +1,0 @@
-{
-  "pathParameters": {
-    "body": "%7B%22url%22%3A%22https%3A%2F%2Fwww.svt.se%2Fnyheter%2Flokalt%2Fnorrbotten%2Falgturism-med-fara-for-bade-djur-och-gaster%22%7D"
-  },  "requestContext": {
-    "identity": {
-      "cognitoIdentityId": "USER-SUB-1234"
-    }
-  }
-}
