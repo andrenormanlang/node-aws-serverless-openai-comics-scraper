@@ -1,15 +1,12 @@
-// src/libs/user_article_interaction_lib.js does not exist yet.
-// All tests are skipped until the source module is created.
-
 import * as dynamoDbLib from "../src/libs/dynamodb-lib";
 import * as defs from "../src/libs/defs";
-
-const interactionLib = {};
+import * as interactionLib from "../src/libs/user_article_interaction_lib";
 
 // Mock dynamoDbLib
 jest.mock("../src/libs/dynamodb-lib");
 jest.mock("../src/libs/defs", () => ({
   WN_STR_KEY_TABLE: "test-table",
+  ARTICLE_LEGACY_THRESHOLD_DAYS: 8,
 }));
 
 const EIGHT_DAYS_SECONDS = 8 * 24 * 60 * 60;
@@ -29,7 +26,7 @@ function createFreshArticle(overrides = {}) {
   };
 }
 
-describe.skip("user_article_interaction_lib", () => {
+describe("user_article_interaction_lib", () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
