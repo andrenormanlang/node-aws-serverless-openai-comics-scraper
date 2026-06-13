@@ -2,6 +2,36 @@
 // General constants for the backend
 //
 
+// Canonical RSS source list. Both the ingester (add_articles) and the
+// scraper (data_scrapping_node) MUST read from here so their sortKeys
+// stay in sync — they key DynamoDB items by these exact URLs.
+export const RSS_SOURCES = [
+  "https://www.cbr.com/feed/",
+  "https://bleedingcool.com/feed/",
+  "https://www.comicsbeat.com/feed/",
+  "https://icv2.com/rss",
+  "https://www.comicbookherald.com/feed/",
+  "https://www.graphicpolicy.com/feed/",
+  "https://brokenfrontier.com/feed/",
+  "https://13thdimension.com/feed/",
+  "https://www.denofgeek.com/comics/feed/",
+  "https://comicbook.com/category/comics/feed/",
+  "https://www.comicsalliance.com/feed/",
+  // ── Candidates to vet with the diagnostic before trusting (feed + sample article) ──
+  "https://comicsxf.com/feed/",
+  "https://womenwriteaboutcomics.com/feed/",
+  "https://smashpages.net/feed/",
+  // ── Disabled ──
+  // "https://aiptcomics.com/feed/",          // Cloudflare managed challenge on article fetch
+  // "https://screenrant.com/feed/",          // Valnet; high volume, not comics-only — enable if wanted
+  // "https://collider.com/feed/",            // Valnet; broad pop-culture — enable if wanted
+  // "https://www.multiversitycomics.com/feed/", // ETIMEDOUT from eu-north-1
+  // "https://dccomicsnews.com/feed/",           // feed inactive since March 2026
+  // "https://www.gamesradar.com/comics/rss/",   // 404 — no comics-specific feed exists
+  // "https://www.superherohype.com/feed/",      // 403 — blocks all RSS access
+  // "https://comicbookroundup.com/feed/rss2/",  // 404 — feed gone
+];
+
 export const POPULARITY_SCORE_FROM_FEEDBACK = 5;
 export const POPULARITY_SCORE_FROM_COMMENT = 15;
 

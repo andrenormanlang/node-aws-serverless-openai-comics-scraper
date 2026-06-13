@@ -86,7 +86,7 @@ const PAYWALL_PHRASES_BODY = [
 ];
 const SLUG_MAX_LENGTH = 100;
 const ITEM_PROCESS_CONCURRENCY = 4;
-const MIN_ARTICLE_TEXT_LENGTH = 250;
+const MIN_ARTICLE_TEXT_LENGTH = 700;
 
 function canonicalize_article_url(rawUrl) {
   try {
@@ -206,19 +206,28 @@ function extract_text_with_newlines(node) {
   return text;
 }
 
+// Remove non-content nodes that pollute the body before text extraction.
+const STRIP_SELECTORS = [
+  "script", "style", "nav", "header", "footer", "aside", "form",
+  "figure figcaption", ".related", ".related-posts", ".newsletter",
+  ".share", ".social", ".comments", "#comments", ".advertisement",
+  ".ad", ".wp-block-buttons", ".author-bio", ".post-navigation",
+];
+
 function extract_article_body($, url) {
   for (const selector of get_selectors_for_url(url)) {
-    const el = $(selector).first().get(0);
-    if (!el) {
-      continue;
-    }
+    const el = $(selector).first();
+    if (!el.length) continue;
 
-    const candidate = extract_text_with_newlines(el).trim();
-    if (candidate.length > 200) {
+    // Clone so we don't mutate the doc for later selectors, then strip junk.
+    const clone = el.clone();
+    clone.find(STRIP_SELECTORS.join(",")).remove();
+
+    const candidate = extract_text_with_newlines(clone.get(0)).trim();
+    if (candidate.length >= MIN_ARTICLE_TEXT_LENGTH) {
       return candidate;
     }
   }
-
   return "";
 }
 
@@ -604,25 +613,7 @@ const get_data_from_dynamoDb = async function () {
   const tableName = defs.WN_STR_KEY_TABLE;
   const currentDateEpochTS = Math.floor(Date.now() / 1000) - defs.GET_HOURS_BACK_FOR_DB_UPDATE * 3600;
 
-  let rssUrls = [
-    "https://www.cbr.com/feed/",
-    "https://bleedingcool.com/feed/",
-    "https://www.comicsbeat.com/feed/",
-    "https://icv2.com/rss",
-    "https://aiptcomics.com/feed/",
-    "https://www.comicbookherald.com/feed/",
-    "https://www.graphicpolicy.com/feed/",
-    "https://brokenfrontier.com/feed/",
-    "https://13thdimension.com/feed/",
-    "https://www.denofgeek.com/comics/feed/",
-    "https://comicbook.com/category/comics/feed/",
-    "https://www.comicsalliance.com/feed/",
-    // "https://www.multiversitycomics.com/feed/", // ETIMEDOUT from eu-north-1
-    // "https://dccomicsnews.com/feed/",           // feed inactive since March 2026
-    // "https://www.gamesradar.com/comics/rss/",   // 404 — no comics-specific feed exists
-    // "https://www.superherohype.com/feed/",      // 403 — blocks all RSS access
-    // "https://comicbookroundup.com/feed/rss2/",  // 404 — feed gone
-  ];
+ const rssUrls = defs.RSS_SOURCES;
 
   // const response = await dynamodb.scan(params).promise();
   let data = await Promise.all(

@@ -6,55 +6,72 @@ import * as dynamoDbLib from "./dynamodb-lib";
 
 const DEFAULT_PROMPTS = {
   title: `
-You are given a headline from a comics or pop-culture news article.
-Rewrite the headline in clear, natural English.
+You rewrite headlines from comics and pop-culture news articles into clear, natural English.
 
 Rules:
-- Keep the same meaning.
-- Make it concise and factual.
-- No line breaks.
-- Max 90 characters.
-- Return only the rewritten headline.
+- Preserve the exact meaning. Do not add information not present in the original.
+- Keep all proper nouns (character names, titles, creators, publishers) exactly as written.
+- Concise and factual; no clickbait, no editorializing.
+- One line, no line breaks. Max 90 characters.
+- Output only the rewritten headline, with no quotation marks, labels, or preamble.
 `,
   description: `
-You are given a short description (lead paragraph) from a comics or pop-culture news article.
-Rewrite the description in clear, natural English.
+You rewrite the lead paragraph of a comics or pop-culture news article into clear, natural English.
 
 Rules:
-- Keep all meaning and factual content.
-- Make it clear and informative.
-- No line breaks.
-- Return only the rewritten description.
+- Preserve all factual content: names, titles, dates, numbers, and events.
+- Do not add, infer, or invent any information.
+- Keep all proper nouns exactly as written.
+- One paragraph, no line breaks.
+- Neutral news register.
+- Output only the rewritten description, with no labels or preamble.
 `,
   body: `
-You are given text scraped from a comics or pop-culture news article. It may contain noise from scraping.
+You rewrite the body of a comics or pop-culture news article into clear, natural, fluent English. The input is scraped HTML text and may contain leftover noise.
 
-The text may include:
-- image captions
-- photo credits
-- links
-- calls to action like "Read more", "Click here", "Subscribe"
-- social media references
-- navigation or interface text
-- duplicated or truncated lines
+This is a REWRITE, not a summary. Your job is to restate the same article in cleaner prose, preserving everything of substance.
 
-Your task is to rewrite only the actual article text in correct, natural, and informative English.
+PRESERVE (must not be lost):
+- Every fact, name, title, date, number, and event in the source.
+- All direct quotations, reproduced word-for-word inside quotation marks. Never paraphrase text that appears inside quotes.
+- The original ordering and logical flow of the article.
+- The original language of the article (if the source is in another language, rewrite in that same language).
 
-Rules:
-- Keep all meaning, facts, and details.
-- All parts of the article content must be preserved in the rewrite.
-- Do not omit any content.
-- This is a rewrite, not a summary.
-- Do not omit facts, quotes, events, or explanations from the original.
-- Quotes must be reproduced verbatim.
-- Only remove text that is clearly scraping noise (e.g. image captions, photo credits, links, CTAs).
-- After removing scraping noise, the text length should not vary by more than approximately 20% compared to the original body text.
-- Write in neutral news language.
-- Divide the text into clear paragraphs.
-- Add a blank line between paragraphs.
-- Merge incorrect line breaks in the middle of sentences.
-- Return only the rewritten article text.
+REMOVE (scraping noise only):
+- Image captions, photo/illustration credits.
+- Inline links, bare URLs, "Read more / Click here / Subscribe / Tip us" calls to action.
+- Social-media prompts, share buttons, navigation labels, menu text, advertisement markers.
+- Duplicated lines and fragments left over from scraping.
+
+DO NOT:
+- Do not summarize, shorten, or compress the actual reporting.
+- Do not omit facts, quotes, events, or explanations.
+- Do not add commentary, opinions, or information not in the source.
+- Do not add a headline, byline, or concluding remark of your own.
+
+FORMAT:
+- Group sentences into coherent paragraphs.
+- Separate paragraphs with a single blank line.
+- Merge broken mid-sentence line breaks from the scrape into continuous sentences.
+
+Output ONLY the rewritten article text. Do not include any preamble such as "Here is the rewritten article" or any labels, headers, or markdown fences.
 `,
+};
+
+// Body/description rewrites are faithfulness tasks: keep temperature low so the
+// model restates rather than reinterprets. Title is also low for consistency.
+const REWRITE_TEMPERATURE = {
+  title: 0.3,
+  description: 0.3,
+  body: 0.3,
+};
+
+// Generous output ceiling so long articles are not silently truncated.
+// finish_reason is checked separately to detect when this is still hit.
+const REWRITE_MAX_TOKENS = {
+  title: 120,
+  description: 400,
+  body: 4000,
 };
 
 function removeBackticks(str) {
@@ -62,6 +79,27 @@ function removeBackticks(str) {
     return str.slice(1, -1);
   }
   return str;
+}
+
+// Defensive: strip a leading "Here is the rewritten ...:" style preamble and any
+// stray markdown code fences the model may add despite instructions.
+function stripPreambleAndFences(str) {
+  if (!str) return str;
+  let out = str.trim();
+
+  // Remove surrounding ``` or ```lang fences.
+  const fenceMatch = out.match(/^```[a-z]*\s*\n([\s\S]*?)\n```$/i);
+  if (fenceMatch) {
+    out = fenceMatch[1].trim();
+  }
+
+  // Remove a single leading preamble line like "Here is the rewritten article:"
+  out = out.replace(
+    /^(here(?:'s| is)[^\n:]*:|rewritten (?:article|text|version)[^\n:]*:)\s*\n+/i,
+    ""
+  );
+
+  return out.trim();
 }
 
 function getRuntimePrompt(key, config) {
@@ -325,6 +363,8 @@ export async function rephrase_data_from_openai(data, key) {
       body: JSON.stringify({
         model: modelGpt,
         messages: messagesGpt,
+        temperature: REWRITE_TEMPERATURE[key] ?? 0.3,
+        max_tokens: REWRITE_MAX_TOKENS[key] ?? 4000,
       }),
     });
 
@@ -335,10 +375,32 @@ export async function rephrase_data_from_openai(data, key) {
     }
 
     const chatCompletion = await res.json();
-    const rawContent = chatCompletion.choices?.[0]?.message?.content;
+    const choice = chatCompletion.choices?.[0];
+    const rawContent = choice?.message?.content;
 
-    const result =
-      key === "title" ? removeBackticks(rawContent || "") : rawContent || "";
+    // Detect silent truncation: if the model hit the token cap, the stored body
+    // would be a partial article presented as complete. Log loudly so it is
+    // visible, and (for body) treat it as a failure rather than saving a stub.
+    const finishReason = choice?.finish_reason;
+    if (finishReason === "length") {
+      console.error(
+        `OpenAI rephrase truncated (finish_reason=length) for ${key}; ` +
+          `input tokens=${encoded.length}, cap=${
+            REWRITE_MAX_TOKENS[key] ?? 4000
+          }`
+      );
+      if (key === "body") {
+        // Returning "" lets the caller record an rwError instead of a half body.
+        return "";
+      }
+    }
+
+    let result = key === "title" ? removeBackticks(rawContent || "") : rawContent || "";
+
+    // Defensive cleanup of preamble / code fences for the longer-form outputs.
+    if (key !== "title") {
+      result = stripPreambleAndFences(result);
+    }
 
     return result;
   } catch (error) {

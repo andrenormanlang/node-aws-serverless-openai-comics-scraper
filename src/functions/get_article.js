@@ -4,77 +4,75 @@ import handler from "../libs/handler-lib";
 
 export const main = handler(async (event, context) => {
   const userId = event.requestContext?.identity?.cognitoIdentityId ?? null;
-  const q = {
-    url: decodeURIComponent(event.pathParameters.url),
-  };
-  console.log(event);
+
+  const q = { url: decodeURIComponent(event.pathParameters.url) };
   const data = event.queryStringParameters ?? {};
-  console.log("koko: ", data);
+
   if (!q.url || !data.sortKey) return {};
 
   const params = {
     TableName: defs.WN_STR_KEY_TABLE,
-    Key: {
-      id: q.url,
-      sortKey: data.sortKey,
-    },
+    Key: { id: q.url, sortKey: data.sortKey },
   };
 
   const result = await dynamoDbLib.call("get", params);
 
-  console.log("asdf: ", result.Item);
-  if (!Object.keys(result).length) return {};
+  // Correct miss check: the item itself, not the response wrapper. Also guards
+  // every result.Item access below from throwing on a missing record.
+  if (!result || !result.Item) return {};
 
-  //pretty sure i have to reset db
+  const item = result.Item;
 
-  // Resolve vote counts: prefer `interestCount`/`uninterestCount`, fallback to likes/dislikes arrays
+  // Helper: safe array of users for vote/relationship attributes that may be
+  // absent or malformed on older / mixed-shape records.
+  const usersOf = (field) =>
+    field && Array.isArray(field.users) ? field.users : [];
+
+  const trustUsers = usersOf(item.trust);
+  const distrustUsers = usersOf(item.distrust);
+  const likeUsers = usersOf(item.likes);
+  const dislikeUsers = usersOf(item.dislikes);
+  const supportUsers = Array.isArray(item.support) ? item.support : [];
+  const subjects = Array.isArray(item.subjects) ? item.subjects : [];
+
+  // Resolve vote counts: prefer counters, fall back to array length.
   const likesAmount =
-    typeof result.Item.interestCount === "number"
-      ? result.Item.interestCount
-      : result.Item.likes && result.Item.likes.users
-      ? result.Item.likes.users.length
-      : 0;
+    typeof item.interestCount === "number"
+      ? item.interestCount
+      : likeUsers.length;
   const dislikesAmount =
-    typeof result.Item.uninterestCount === "number"
-      ? result.Item.uninterestCount
-      : result.Item.dislikes && result.Item.dislikes.users
-      ? result.Item.dislikes.users.length
-      : 0;
+    typeof item.uninterestCount === "number"
+      ? item.uninterestCount
+      : dislikeUsers.length;
 
   return {
-    ...result.Item,
+    ...item,
     trust: {
-      amount: result.Item.trust.users.length,
-      status: result.Item.trust.users.includes(userId),
+      amount: trustUsers.length,
+      status: trustUsers.includes(userId),
     },
     distrust: {
-      amount: result.Item.distrust.users.length,
-      status: result.Item.distrust.users.includes(userId),
+      amount: distrustUsers.length,
+      status: distrustUsers.includes(userId),
     },
     likes: {
       amount: likesAmount,
-      status:
-        result.Item.likes && result.Item.likes.users
-          ? result.Item.likes.users.includes(userId)
-          : false,
+      status: likeUsers.includes(userId),
     },
     dislikes: {
       amount: dislikesAmount,
-      status:
-        result.Item.dislikes && result.Item.dislikes.users
-          ? result.Item.dislikes.users.includes(userId)
-          : false,
+      status: dislikeUsers.includes(userId),
     },
     support: {
-      amount: result.Item.support.length,
-      status: result.Item.support.includes(userId),
+      amount: supportUsers.length,
+      status: supportUsers.includes(userId),
     },
-    subjects: result.Item.subjects.map((subject) => {
-      return {
-        id: subject.id,
-        users: subject.users.length,
-        status: subject.users.includes(userId),
-      };
-    }),
+    subjects: subjects.map((subject) => ({
+      id: subject.id,
+      users: Array.isArray(subject.users) ? subject.users.length : 0,
+      status: Array.isArray(subject.users)
+        ? subject.users.includes(userId)
+        : false,
+    })),
   };
 });

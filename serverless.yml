@@ -95,10 +95,6 @@ functions:
           method: get
           cors: true
 
-    # ── Manual: diagnose aiptcomics 403 blocking (TEMPORARY — remove after) ───
-  test_aipt_fetch:
-    handler: src/functions/test_aipt_fetch.main
-    timeout: 120
 
 resources:
   - ${file(resources/api-gateway-errors.yml)}
