@@ -96,7 +96,7 @@ functions:
           cors: true
   
   # ── Manual: diagnose aiptcomics 403 blocking (TEMPORARY — remove after) ───
-  test_comic_beat_fetch:
+  test_channel_fetch:
     handler: src/functions/test_channel_fetch.main
     timeout: 120
 
