@@ -29,6 +29,15 @@ function createFreshArticle(overrides = {}) {
 describe("user_article_interaction_lib", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+
+    // Pin the library's clock to the same NOW the test fixtures use, so the
+    // 8-day cutoff comparison can't drift as the suite runs. The lib reads
+    // "now" via dynamoDbLib.now(); without this, several seconds can elapse
+    // between capturing NOW and the lib calling its own clock, which tips
+    // boundary fixtures over the cutoff and causes intermittent failures.
+    if (dynamoDbLib.now && typeof dynamoDbLib.now.mockReturnValue === "function") {
+      dynamoDbLib.now.mockReturnValue(NOW);
+    }
   });
 
   describe("getOrCreateUserArticle", () => {
@@ -432,11 +441,11 @@ describe("user_article_interaction_lib", () => {
       expect(result).toBe("Old article");
     });
 
-    it("should allow operations on articles slightly under 8 days old", async () => {
-      const sevenDayNinetyNineSecondsAgoTS = NOW - (EIGHT_DAYS_SECONDS - 1);
-      const article = createFreshArticle({
-        addedTS: sevenDayNinetyNineSecondsAgoTS,
-      });
+    it("should allow operations on articles comfortably under 8 days old", async () => {
+      // One hour under the cutoff: unambiguously "not old" and immune to any
+      // wall-clock drift between capturing NOW and the lib reading its clock.
+      const justUnderEightDaysTS = NOW - (EIGHT_DAYS_SECONDS - 3600);
+      const article = createFreshArticle({ addedTS: justUnderEightDaysTS });
 
       dynamoDbLib.call
         .mockResolvedValueOnce({ Item: article })

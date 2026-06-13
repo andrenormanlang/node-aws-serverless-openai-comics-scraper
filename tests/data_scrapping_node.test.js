@@ -203,6 +203,8 @@ beforeEach(() => {
     "This is the third long paragraph with timeline and extra context so the final cleaned article remains comfortably above minimum length checks.",
     "This is the fourth long paragraph to ensure the resulting content is long enough even after removing noisy lines from scraping.",
     "This is the fifth long paragraph that confirms the cleaner preserves meaningful narrative while removing only obvious junk lines.",
+    "This is the sixth long paragraph adding further background, sourcing, and explanation so the article is unambiguously above the minimum length.",
+    "This is the seventh long paragraph with closing context, reactions, and additional factual detail to keep the body well clear of the threshold.",
   ].join("\n");
 
   const goodHtml = `<html><head><title>News article</title></head><body><article>${goodArticleBody}</article></body></html>`;
