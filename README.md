@@ -9,6 +9,22 @@ Serverless comics news backend for [Retro Pop Comics](https://retro-pop-comics.c
 
 ---
 
+## 🧭 Spec-Driven Development (SDD)
+
+This backend is **continuously developed using Spec-Driven Development**: every non-trivial change is specified, planned, and split into tasks *before* code is written, so intent and architecture stay explicit as the service grows.
+
+- **[`CLAUDE_SDD.md`](./CLAUDE_SDD.md)** — this repo's constitution: stack, directory map, the DynamoDB data model, env/secrets, commands, and the guardrails every change must follow. Read it before starting work.
+- This repo is one of **two deployables** in the parent **`retro-pop-project/` workspace** (which also contains [`retro-pop`](../retro-pop)). The shared SDD assets live at the workspace root (the parent folder, not committed to this repo):
+  - `CLAUDE_SDD.md` — the workspace constitution (the four-phase loop + cross-repo HTTP contract rules).
+  - `specs/<feature>/` — one folder per feature: `spec.md` (what & why, tech-free) → `plan.md` (how, real repo-qualified files) → `tasks.md` (ordered, verifiable steps).
+  - `claude-sdd/` — lifecycle staging (`todo/` → `done/`).
+
+**The loop:** Specify → Plan → Tasks → Implement. Every spec & plan declares its target repo(s) — `retro-pop`, `retro-pop-dispatch`, or `both`. A cross-repo feature is a single spec that defines the HTTP contract on both sides — e.g. the **Daily Pull Digest**, whose generation pipeline (aggregate recent articles → OpenAI summarize → store one item/day) this backend owns and exposes at `GET /news/digest`.
+
+**Definition of done (backend):** code matches the plan, `npm test` passes (jest), the handler is demonstrated via `serverless invoke local` / `offline`, and `serverless.yml` reflects any schedule/IAM/GSI change.
+
+---
+
 ## Architecture
 
 ```text
