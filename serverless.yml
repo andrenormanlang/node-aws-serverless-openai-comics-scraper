@@ -95,6 +95,23 @@ functions:
           method: get
           cors: true
   
+  # ── Scheduled: build the Daily Pull Digest (04:00 UTC ≈ 06:00 Malmö) ──────
+  generate_digest:
+    handler: src/functions/generate_digest.main
+    timeout: 120
+    events:
+      - schedule: cron(0 4 * * ? *)
+
+  # ── GET /news/digest  →  today's Daily Pull Digest ───────────────────────
+  get_digest:
+    handler: src/handlers/digest.main
+    timeout: 120
+    events:
+      - http:
+          path: news/digest
+          method: get
+          cors: true
+
   # ── Manual: diagnose aiptcomics 403 blocking (TEMPORARY — remove after) ───
   test_channel_fetch:
     handler: src/functions/test_channel_fetch.main
