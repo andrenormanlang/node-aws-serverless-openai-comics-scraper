@@ -1,17 +1,13 @@
-import { getTodaysDigest, generateDigest } from "../libs/digest-lib";
+import { getTodaysDigest } from "../libs/digest-lib";
 import { success } from "../libs/response-lib";
 
-// GET /news/digest — return today's Daily Pull Digest, lazily generating it once if missing.
-// Always non-blocking: any failure resolves to `{ digest: null }` so the news page still renders.
+// GET /news/digest — return today's Daily Pull Digest if it exists. READ-ONLY and fast:
+// generation happens only in the scheduled generate_digest Lambda, so this endpoint never blocks on
+// an OpenAI call (which would blow past the API Gateway / caller timeout). Always returns 200;
+// `digest` is null when today's digest hasn't been generated yet.
 export async function main() {
   try {
-    let digest = await getTodaysDigest();
-
-    if (!digest) {
-      // Lazy catch-up (at most one extra generation/day; generateDigest re-checks existence).
-      digest = await generateDigest({ force: false });
-    }
-
+    const digest = await getTodaysDigest();
     return success({ status: true, digest: digest || null });
   } catch (e) {
     console.error("digest handler error:", e.message);
