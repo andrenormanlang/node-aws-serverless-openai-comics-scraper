@@ -1,10 +1,11 @@
 //
 // Daily Pull Digest — generation, storage, and read.
 //
-// Owns the whole digest pipeline in the backend: aggregate the last 24h of scroll-feed articles
-// (sortKey="articles"), summarize them into up to 5 highlights via OpenAI (same call shape as
-// `rephrase-lib.js`'s `requestSubjectClassification`: raw fetch + json_schema response_format), and
-// store one item per day in DynamoDB. The day rolls over at Malmö (Europe/Stockholm) midnight.
+// Owns the whole digest pipeline in the backend: aggregate the last 24h of articles across the RSS
+// sources (the same per-feed query the trending endpoint uses), summarize them into up to 5
+// highlights via OpenAI (same call shape as `rephrase-lib.js`'s `requestSubjectClassification`: raw
+// fetch + json_schema response_format), and store one item per day in DynamoDB. The day rolls over at
+// Malmö (Europe/Stockholm) midnight.
 //
 
 import fetch from "node-fetch";
@@ -44,6 +45,48 @@ function stripHtml(value) {
     .replace(/<[^>]*>/g, " ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// Aggregate recent articles by fanning out over the canonical RSS sources — the same proven query
+// the trending endpoint relies on (`doQueryNewsFeed` per source). Dedupes, sorts newest-first, and
+// prefers the last-`COVERAGE_HOURS` window; if that window is sparse, falls back to the latest
+// available so the digest still gets produced.
+async function aggregateRecentArticles(sinceTS) {
+  const perSource = await Promise.all(
+    (defs.RSS_SOURCES || []).map((rssUrl) =>
+      Promise.resolve()
+        .then(() => dynamoDbLib.doQueryNewsFeed(rssUrl))
+        .catch((e) => {
+          console.error(
+            "aggregateRecentArticles: query failed for " + rssUrl + ": " + e.message
+          );
+          return null;
+        })
+    )
+  );
+
+  const seen = new Set();
+  const all = [];
+  for (const items of perSource) {
+    if (!Array.isArray(items)) continue;
+    for (const a of items) {
+      if (!a || !a.id || seen.has(a.id)) continue;
+      seen.add(a.id);
+      all.push(a);
+    }
+  }
+
+  all.sort((x, y) => (y.pubTS ?? 0) - (x.pubTS ?? 0));
+
+  const recent = all.filter((a) => (a.pubTS ?? 0) >= sinceTS);
+  const pool = recent.length >= DIGEST_HIGHLIGHT_COUNT ? recent : all;
+
+  console.log(
+    `aggregateRecentArticles: ${all.length} unique articles, ${recent.length} within ` +
+      `${COVERAGE_HOURS}h; using ${Math.min(pool.length, MAX_ARTICLES)}`
+  );
+
+  return pool.slice(0, MAX_ARTICLES);
 }
 
 // Pick the articles that will feed the prompt: those with a usable title + id, token-bounded,
@@ -167,10 +210,7 @@ export async function generateDigest({ force = false } = {}) {
   const coverageEndTS = dynamoDbLib.now();
   const coverageStartTS = coverageEndTS - COVERAGE_HOURS * 3600;
 
-  const fetched = await dynamoDbLib.fetchRecentArticles({
-    sinceTS: coverageStartTS,
-    limit: MAX_ARTICLES,
-  });
+  const fetched = await aggregateRecentArticles(coverageStartTS);
 
   const selected = selectDigestArticles(fetched);
   if (selected.length === 0) {

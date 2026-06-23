@@ -122,12 +122,12 @@ describe("generateDigest", () => {
 
     expect(result).toEqual({ id: "digest", highlights: [] });
     expect(fetch).not.toHaveBeenCalled();
-    expect(dynamoDbLib.fetchRecentArticles).not.toHaveBeenCalled();
+    expect(dynamoDbLib.doQueryNewsFeed).not.toHaveBeenCalled();
   });
 
   test("returns null when there are no recent articles", async () => {
     dynamoDbLib.call.mockResolvedValueOnce({ Item: undefined });
-    dynamoDbLib.fetchRecentArticles.mockResolvedValueOnce([]);
+    dynamoDbLib.doQueryNewsFeed.mockResolvedValue(null);
 
     const result = await generateDigest({ force: false });
 
@@ -139,7 +139,7 @@ describe("generateDigest", () => {
     dynamoDbLib.call
       .mockResolvedValueOnce({ Item: undefined }) // getTodaysDigest → none
       .mockResolvedValueOnce({}); // put
-    dynamoDbLib.fetchRecentArticles.mockResolvedValueOnce(ARTICLES);
+    dynamoDbLib.doQueryNewsFeed.mockResolvedValue(ARTICLES);
     fetch.mockResolvedValueOnce({
       ok: true,
       json: async () => ({
@@ -165,7 +165,7 @@ describe("generateDigest", () => {
 
   test("retries once on an invalid payload, then degrades to null", async () => {
     dynamoDbLib.call.mockResolvedValueOnce({ Item: undefined });
-    dynamoDbLib.fetchRecentArticles.mockResolvedValueOnce(ARTICLES);
+    dynamoDbLib.doQueryNewsFeed.mockResolvedValue(ARTICLES);
     fetch.mockResolvedValue({
       ok: true,
       json: async () => ({

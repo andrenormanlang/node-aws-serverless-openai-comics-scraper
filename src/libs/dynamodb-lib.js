@@ -271,30 +271,6 @@ export async function fetchLatestArticles() {
   }
 }
 
-// Fetch recent scroll-feed (rewritten) articles published since `sinceTS`, newest first.
-// `sortKey="articles"` is the rewritten/scroll-feed record and `amount` mirrors `pubTS`, so the
-// amount GSI doubles as a recency index — one query, no per-source fan-out.
-export async function fetchRecentArticles({ sinceTS, limit = 40 }) {
-  const params = {
-    TableName: defs.WN_STR_KEY_TABLE,
-    IndexName: defs.WN_STR_KEY_AMOUNT_INDEX,
-    KeyConditionExpression: "sortKey = :sortKey AND amount >= :sinceTS",
-    ExpressionAttributeValues: {
-      ":sortKey": "articles",
-      ":sinceTS": sinceTS,
-    },
-    Limit: limit,
-    ScanIndexForward: false,
-  };
-  try {
-    const result = await call("query", params);
-    return result && result.Items ? result.Items : [];
-  } catch (e) {
-    console.error("fetchRecentArticles: Error - " + e.message);
-    return [];
-  }
-}
-
 // Check RSS feeds for new articles.
 export async function checkAndAddNewArticles(rssFeeds) {
   const newArticles = [];
