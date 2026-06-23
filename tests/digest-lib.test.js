@@ -33,15 +33,14 @@ const ARTICLES = Array.from({ length: 6 }, (_, i) => ({
   amount: 1000 + i,
 }));
 
-const ALLOWED = new Set(ARTICLES.map((a) => a.id));
-
-function makeHighlights(urls) {
-  return Array.from({ length: 5 }, (_, i) => ({
+// Highlights cite sources by 1-based article number.
+function makeHighlights(count) {
+  return Array.from({ length: count }, (_, i) => ({
     publisher: "DC",
     topic: "relaunch",
     headline: `Headline ${i}`,
     summary: `Summary ${i}`,
-    sources: [{ title: `Source ${i}`, url: urls[i % urls.length] }],
+    sources: [(i % ARTICLES.length) + 1],
   }));
 }
 
@@ -58,50 +57,58 @@ beforeEach(() => {
 
 describe("malmoDate", () => {
   test("formats a fixed instant as the Malmö (Europe/Stockholm) ISO date", () => {
-    // 2026-06-22T01:30Z is still 2026-06-22 in CEST (UTC+2).
     expect(malmoDate(new Date("2026-06-22T01:30:00Z"))).toBe("2026-06-22");
-    // 2026-06-21T23:30Z is already 2026-06-22 locally (01:30 CEST) — rolls over at Malmö midnight.
+    // 23:30Z is already the next day locally (01:30 CEST) — rolls over at Malmö midnight.
     expect(malmoDate(new Date("2026-06-21T23:30:00Z"))).toBe("2026-06-22");
   });
 });
 
 describe("validateDigest", () => {
-  test("accepts exactly 5 valid highlights", () => {
-    const result = validateDigest(
-      { highlights: makeHighlights([...ALLOWED]) },
-      ALLOWED
-    );
+  test("resolves integer sources to { title, url } for 5 valid highlights", () => {
+    const result = validateDigest({ highlights: makeHighlights(5) }, ARTICLES);
+    expect(result).toHaveLength(5);
+    expect(result[0].sources[0]).toEqual({
+      title: "Title 0",
+      url: "https://example.com/a0",
+    });
+  });
+
+  test("caps at 5 when the model returns more", () => {
+    const result = validateDigest({ highlights: makeHighlights(8) }, ARTICLES);
     expect(result).toHaveLength(5);
   });
 
-  test("rejects when not exactly 5 highlights", () => {
-    const four = makeHighlights([...ALLOWED]).slice(0, 4);
-    expect(validateDigest({ highlights: four }, ALLOWED)).toBeNull();
+  test("keeps valid highlights and drops ones with no resolvable source", () => {
+    const hs = makeHighlights(5);
+    hs[0].sources = [999]; // out of range → highlight dropped, others kept
+    const result = validateDigest({ highlights: hs }, ARTICLES);
+    expect(result).toHaveLength(4);
   });
 
-  test("rejects when a highlight has only invented (out-of-set) urls", () => {
-    const hs = makeHighlights([...ALLOWED]);
-    hs[0].sources = [{ title: "x", url: "https://evil.com/invented" }];
-    expect(validateDigest({ highlights: hs }, ALLOWED)).toBeNull();
+  test("returns null when no highlight is usable", () => {
+    const hs = makeHighlights(3).map((h) => ({ ...h, sources: [999] }));
+    expect(validateDigest({ highlights: hs }, ARTICLES)).toBeNull();
+    expect(validateDigest({ highlights: [] }, ARTICLES)).toBeNull();
   });
 
-  test("rejects missing required string fields", () => {
-    const hs = makeHighlights([...ALLOWED]);
+  test("skips highlights missing required text", () => {
+    const hs = makeHighlights(5);
     delete hs[2].summary;
-    expect(validateDigest({ highlights: hs }, ALLOWED)).toBeNull();
+    expect(validateDigest({ highlights: hs }, ARTICLES)).toHaveLength(4);
   });
 });
 
 describe("buildDigestPrompt", () => {
-  test("includes source label, title and url; skips entries without a title", () => {
+  test("numbers entries with source + title, and skips entries without a title", () => {
     const prompt = buildDigestPrompt([
       ...ARTICLES,
       { id: "https://x/y", rssUrl: "https://x.com" }, // no title → skipped
     ]);
-    expect(prompt).toContain("Title 0");
-    expect(prompt).toContain("url: https://example.com/a0");
-    expect(prompt).toContain("[src0.com]");
-    expect(prompt).not.toContain("url: https://x/y");
+    const lines = prompt.split("\n");
+    expect(lines).toHaveLength(ARTICLES.length);
+    expect(lines[0]).toContain("[1]");
+    expect(lines[0]).toContain("(src0.com)");
+    expect(lines[0]).toContain("Title 0");
   });
 });
 
@@ -109,7 +116,7 @@ describe("generateDigest", () => {
   test("returns the existing digest without calling OpenAI", async () => {
     dynamoDbLib.call.mockResolvedValueOnce({
       Item: { id: "digest", highlights: [] },
-    }); // getTodaysDigest
+    });
 
     const result = await generateDigest({ force: false });
 
@@ -119,7 +126,7 @@ describe("generateDigest", () => {
   });
 
   test("returns null when there are no recent articles", async () => {
-    dynamoDbLib.call.mockResolvedValueOnce({ Item: undefined }); // getTodaysDigest
+    dynamoDbLib.call.mockResolvedValueOnce({ Item: undefined });
     dynamoDbLib.fetchRecentArticles.mockResolvedValueOnce([]);
 
     const result = await generateDigest({ force: false });
@@ -137,13 +144,7 @@ describe("generateDigest", () => {
       ok: true,
       json: async () => ({
         choices: [
-          {
-            message: {
-              content: JSON.stringify({
-                highlights: makeHighlights([...ALLOWED]),
-              }),
-            },
-          },
+          { message: { content: JSON.stringify({ highlights: makeHighlights(5) }) } },
         ],
       }),
     });
@@ -163,19 +164,18 @@ describe("generateDigest", () => {
   });
 
   test("retries once on an invalid payload, then degrades to null", async () => {
-    dynamoDbLib.call.mockResolvedValueOnce({ Item: undefined }); // getTodaysDigest → none
+    dynamoDbLib.call.mockResolvedValueOnce({ Item: undefined });
     dynamoDbLib.fetchRecentArticles.mockResolvedValueOnce(ARTICLES);
-    const badResponse = {
+    fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         choices: [{ message: { content: JSON.stringify({ highlights: [] }) } }],
       }),
-    };
-    fetch.mockResolvedValue(badResponse);
+    });
 
     const result = await generateDigest({ force: false });
 
     expect(result).toBeNull();
-    expect(fetch).toHaveBeenCalledTimes(2); // initial + one corrective retry
+    expect(fetch).toHaveBeenCalledTimes(2);
   });
 });

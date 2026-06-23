@@ -2,7 +2,7 @@
 // Daily Pull Digest — generation, storage, and read.
 //
 // Owns the whole digest pipeline in the backend: aggregate the last 24h of scroll-feed articles
-// (sortKey="articles"), summarize them into exactly 5 highlights via OpenAI (same call shape as
+// (sortKey="articles"), summarize them into up to 5 highlights via OpenAI (same call shape as
 // `rephrase-lib.js`'s `requestSubjectClassification`: raw fetch + json_schema response_format), and
 // store one item per day in DynamoDB. The day rolls over at Malmö (Europe/Stockholm) midnight.
 //
@@ -46,27 +46,36 @@ function stripHtml(value) {
     .trim();
 }
 
-// Build a compact, token-bounded article list for the prompt. Prefers the rewritten title/description.
-export function buildDigestPrompt(articles, maxTokens = MAX_PROMPT_TOKENS) {
-  const lines = [];
+// Pick the articles that will feed the prompt: those with a usable title + id, token-bounded,
+// preserving recency order. The returned order defines the 1-based numbering the model cites by, so
+// generation and validation must use this exact list.
+export function selectDigestArticles(articles, maxTokens = MAX_PROMPT_TOKENS) {
+  const selected = [];
   let tokens = 0;
 
-  for (const a of articles) {
+  for (const a of articles || []) {
     const title = stripHtml(a.rwTitle || a.title || "");
     if (!title || !a.id) continue;
 
     const desc = stripHtml(a.rwDescription || a.description || "").slice(0, 280);
     const source = sourceLabel(a.rssUrl);
-    const line = `- [${source}] ${title}${desc ? ` — ${desc}` : ""}\n  url: ${a.id}`;
+    const line = `[${selected.length + 1}] (${source}) ${title}${desc ? ` — ${desc}` : ""}`;
 
     const lineTokens = encode(line).length;
     if (tokens + lineTokens > maxTokens) break;
 
     tokens += lineTokens;
-    lines.push(line);
+    selected.push({ article: a, line });
   }
 
-  return lines.join("\n");
+  return selected;
+}
+
+// Compact, numbered article list for the prompt. (Convenience wrapper around selectDigestArticles.)
+export function buildDigestPrompt(articles, maxTokens = MAX_PROMPT_TOKENS) {
+  return selectDigestArticles(articles, maxTokens)
+    .map((s) => s.line)
+    .join("\n");
 }
 
 function systemPrompt() {
@@ -75,20 +84,24 @@ function systemPrompt() {
     `Cluster the day's comics news into exactly ${DIGEST_HIGHLIGHT_COUNT} themed highlights. ` +
     `Each highlight must have: publisher (e.g. DC, Marvel, Image, Indie), topic/theme ` +
     `(e.g. relaunch, movie/TV, creator news), a short factual headline, a 1–2 sentence ` +
-    `plain-language summary, and 1–${DIGEST_MAX_SOURCES} sources chosen ONLY from the provided urls. ` +
-    `Never invent urls or facts. Consolidate duplicate coverage of the same event into one highlight. ` +
+    `plain-language summary, and "sources": an array of 1–${DIGEST_MAX_SOURCES} article NUMBERS ` +
+    `(the leading [n] from the list) that the highlight draws from. ` +
+    `Use only numbers shown in the list; never invent numbers or facts. ` +
+    `Consolidate duplicate coverage of the same event into one highlight. ` +
     `Reply only with JSON matching the schema.`
   );
 }
 
 async function callOpenAiForDigest({ model, articleList, forceCorrection }) {
   const userContent =
-    `Here is the comics news from the last ${COVERAGE_HOURS} hours (newest first):\n\n` +
+    `Here is the comics news from the last ${COVERAGE_HOURS} hours (newest first), ` +
+    `each line numbered with its [n]:\n\n` +
     `${articleList}\n\n` +
-    `Produce exactly ${DIGEST_HIGHLIGHT_COUNT} highlights as specified.` +
+    `Produce exactly ${DIGEST_HIGHLIGHT_COUNT} highlights. ` +
+    `For each highlight's "sources", list the 1–${DIGEST_MAX_SOURCES} article numbers it draws from.` +
     (forceCorrection
-      ? ` Your previous answer was invalid: return EXACTLY ${DIGEST_HIGHLIGHT_COUNT} highlights, ` +
-        `each with 1–${DIGEST_MAX_SOURCES} sources whose urls are taken from the list above.`
+      ? ` Your previous answer was invalid: return ${DIGEST_HIGHLIGHT_COUNT} highlights, each with at ` +
+        `least one valid source number from the list above.`
       : "");
 
   return fetch("https://api.openai.com/v1/chat/completions", {
@@ -104,7 +117,7 @@ async function callOpenAiForDigest({ model, articleList, forceCorrection }) {
         { role: "user", content: userContent },
       ],
       temperature: 0.3,
-      max_tokens: 1500,
+      max_tokens: 2000,
       response_format: {
         type: "json_schema",
         json_schema: digestResponseSchema,
@@ -154,18 +167,19 @@ export async function generateDigest({ force = false } = {}) {
   const coverageEndTS = dynamoDbLib.now();
   const coverageStartTS = coverageEndTS - COVERAGE_HOURS * 3600;
 
-  const articles = await dynamoDbLib.fetchRecentArticles({
+  const fetched = await dynamoDbLib.fetchRecentArticles({
     sinceTS: coverageStartTS,
     limit: MAX_ARTICLES,
   });
 
-  if (!articles || articles.length === 0) {
+  const selected = selectDigestArticles(fetched);
+  if (selected.length === 0) {
     console.log("generateDigest: no recent articles to summarize");
     return null;
   }
 
-  const allowedUrls = new Set(articles.map((a) => a.id).filter(Boolean));
-  const articleList = buildDigestPrompt(articles);
+  const articleList = selected.map((s) => s.line).join("\n");
+  const promptArticles = selected.map((s) => s.article);
 
   const config = await getGptConfig();
   const model =
@@ -187,11 +201,18 @@ export async function generateDigest({ force = false } = {}) {
       }
 
       const json = await res.json();
-      highlights = validateDigest(parseContent(json), allowedUrls);
+      const payload = parseContent(json);
+      highlights = validateDigest(payload, promptArticles);
 
       if (!highlights) {
+        const count =
+          payload && Array.isArray(payload.highlights)
+            ? payload.highlights.length
+            : "none";
         console.warn(
-          `generateDigest: invalid digest payload (attempt ${attempt + 1})`
+          `generateDigest: invalid digest payload (attempt ${attempt + 1}); ` +
+            `highlights=${count}, articles=${promptArticles.length}, ` +
+            `refusal=${json?.choices?.[0]?.message?.refusal ?? "none"}`
         );
       }
     } catch (e) {
@@ -204,7 +225,8 @@ export async function generateDigest({ force = false } = {}) {
     return null;
   }
 
-  const sourceCount = new Set(articles.map((a) => sourceLabel(a.rssUrl))).size;
+  const sourceCount = new Set(promptArticles.map((a) => sourceLabel(a.rssUrl)))
+    .size;
   const ttlTS = dynamoDbLib.ttlTS(DIGEST_TTL_DAYS);
 
   const item = {
@@ -214,7 +236,7 @@ export async function generateDigest({ force = false } = {}) {
     coverageStartTS,
     coverageEndTS,
     model,
-    articleCount: articles.length,
+    articleCount: promptArticles.length,
     sourceCount,
     highlights,
     createdTS: coverageEndTS,

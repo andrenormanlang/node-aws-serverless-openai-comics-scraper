@@ -1,10 +1,11 @@
 //
 // JSON schema + runtime validation for the Daily Pull Digest payload.
 //
-// The schema is passed to OpenAI's `response_format: { type: "json_schema" }`. We keep it to the
-// constructs structured-output reliably supports (object / array / string + additionalProperties:false
-// + required) and enforce the *counts* (exactly 5 highlights, 1–3 sources, urls drawn from the input)
-// in `validateDigest`, mirroring how `rephrase-lib.js` validates classification output.
+// The schema is passed to OpenAI's `response_format: { type: "json_schema" }`. To avoid the model
+// mangling long source URLs (and because strict structured outputs can't enforce array length), each
+// highlight cites its sources by **article number** — a 1-based index into the numbered list given in
+// the prompt. `validateDigest` resolves those numbers back to real `{ title, url }` from the same
+// list, so invented/garbled URLs are impossible and validation is forgiving of minor model drift.
 //
 
 export const DIGEST_HIGHLIGHT_COUNT = 5;
@@ -27,17 +28,10 @@ export const digestResponseSchema = {
             topic: { type: "string" },
             headline: { type: "string" },
             summary: { type: "string" },
+            // 1-based article numbers (from the numbered list in the prompt) this highlight draws from.
             sources: {
               type: "array",
-              items: {
-                type: "object",
-                additionalProperties: false,
-                properties: {
-                  title: { type: "string" },
-                  url: { type: "string" },
-                },
-                required: ["title", "url"],
-              },
+              items: { type: "integer" },
             },
           },
           required: ["publisher", "topic", "headline", "summary", "sources"],
@@ -52,52 +46,56 @@ function isNonEmptyString(value) {
   return typeof value === "string" && value.trim().length > 0;
 }
 
+function articleTitle(article) {
+  if (isNonEmptyString(article.rwTitle)) return article.rwTitle.trim();
+  if (isNonEmptyString(article.title)) return article.title.trim();
+  return article.id;
+}
+
 //
-// Validate + clean a parsed digest payload. Returns the cleaned `highlights` array, or `null` if the
-// payload is unusable. Rules: exactly DIGEST_HIGHLIGHT_COUNT highlights; each with non-empty
-// publisher/topic/headline/summary; each with 1–DIGEST_MAX_SOURCES sources whose `url` is in
-// `allowedUrls` (no invented links). A highlight left with zero valid sources fails the whole digest.
+// Validate + clean a parsed digest payload against the numbered `articles` list it was built from.
+// Returns the cleaned `highlights` array (1–DIGEST_HIGHLIGHT_COUNT entries, each with resolved
+// `{ title, url }` sources), or `null` if nothing usable came back.
 //
-export function validateDigest(payload, allowedUrls) {
+// Lenient by design: highlights missing required text or with no resolvable source are skipped rather
+// than failing the whole digest; more than DIGEST_HIGHLIGHT_COUNT highlights are capped.
+//
+export function validateDigest(payload, articles) {
   if (!payload || typeof payload !== "object") return null;
 
   const highlights = payload.highlights;
-  if (!Array.isArray(highlights) || highlights.length !== DIGEST_HIGHLIGHT_COUNT) {
-    return null;
-  }
+  if (!Array.isArray(highlights) || highlights.length < 1) return null;
 
-  const allowed =
-    allowedUrls instanceof Set ? allowedUrls : new Set(allowedUrls || []);
-
+  const list = Array.isArray(articles) ? articles : [];
   const cleaned = [];
 
-  for (const h of highlights) {
-    if (!h || typeof h !== "object") return null;
+  for (const h of highlights.slice(0, DIGEST_HIGHLIGHT_COUNT)) {
+    if (!h || typeof h !== "object") continue;
     if (
       !isNonEmptyString(h.publisher) ||
       !isNonEmptyString(h.topic) ||
       !isNonEmptyString(h.headline) ||
       !isNonEmptyString(h.summary)
     ) {
-      return null;
+      continue;
+    }
+    if (!Array.isArray(h.sources)) continue;
+
+    const seen = new Set();
+    const sources = [];
+    for (const ref of h.sources) {
+      const idx = Number(ref);
+      if (!Number.isInteger(idx) || idx < 1 || idx > list.length) continue;
+
+      const article = list[idx - 1];
+      if (!article || !article.id || seen.has(article.id)) continue;
+
+      seen.add(article.id);
+      sources.push({ title: articleTitle(article), url: article.id });
+      if (sources.length >= DIGEST_MAX_SOURCES) break;
     }
 
-    if (!Array.isArray(h.sources)) return null;
-
-    const sources = h.sources
-      .filter(
-        (s) =>
-          s &&
-          typeof s.url === "string" &&
-          (allowed.size === 0 || allowed.has(s.url))
-      )
-      .map((s) => ({
-        title: isNonEmptyString(s.title) ? s.title.trim() : s.url,
-        url: s.url,
-      }))
-      .slice(0, DIGEST_MAX_SOURCES);
-
-    if (sources.length < 1) return null;
+    if (sources.length < 1) continue;
 
     cleaned.push({
       publisher: h.publisher.trim(),
@@ -108,5 +106,5 @@ export function validateDigest(payload, allowedUrls) {
     });
   }
 
-  return cleaned;
+  return cleaned.length > 0 ? cleaned : null;
 }
