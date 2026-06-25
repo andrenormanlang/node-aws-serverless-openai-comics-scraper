@@ -637,95 +637,97 @@ function clean_article_text(text) {
   return deduped.join("\n");
 }
 
+// Fetch an article page and return its parsed cheerio document, or null.
+async function fetch_page_cheerio(canonicalUrl) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 20000);
+  let response;
+  try {
+    response = await fetch(canonicalUrl, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate",   // drop "br" — node-fetch won't decode it
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+      }
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  if (!response.ok) {
+    console.log(
+      `Skipping article due to non-OK response (${response.status}): ${canonicalUrl}`
+    );
+    return null;
+  }
+
+  return cheerioLoad(await response.text());
+}
+
 // Function to fetch article data (body text + images) from an RSS item.
-// Prefers the feed's content:encoded (full, untruncated body) and only falls
-// back to fetching and scraping the live page when that's missing or too short.
-// Returns { body, images } — images works for ALL sources (content:encoded for
-// WordPress feeds; og:image + in-article <img>s from the live page otherwise).
+// Body: prefers the feed's content:encoded (full, untruncated), falling back to
+// scraping the live page when that's missing or too short.
+// Images: works for ALL sources — content:encoded inline images when present,
+// and ALWAYS hits the live page (og:image + in-article <img>s) when the feed
+// body carried none, so feeds like denofgeek/comicbookherald aren't left blank.
 async function get_article_data(item) {
   const url = typeof item === "string" ? item : item?.id;
   // A lead image may already be on the item from RSS ingest (content:encoded
   // or media:content); keep it as the first gallery candidate.
   const leadImage =
     item && typeof item === "object" && item.imageUrl ? [item.imageUrl] : [];
-  const empty = { body: "", images: dedupe_images(leadImage) };
 
+  let body = "";
+  let images = [...leadImage];
+
+  // 1) Body + inline images from content:encoded, when it's substantial.
   if (item && typeof item === "object" && item.contentHtml) {
-    const { body, images } = extract_content_from_html(item.contentHtml, url);
-    const cleaned = clean_article_text(body);
+    const extracted = extract_content_from_html(item.contentHtml, url);
+    const cleaned = clean_article_text(extracted.body);
     if (cleaned && cleaned.length >= MIN_ARTICLE_TEXT_LENGTH) {
-      return { body: cleaned, images: dedupe_images([...leadImage, ...images]) };
+      body = cleaned;
+      images.push(...extracted.images);
+    } else {
+      console.log(
+        `content:encoded too short (${cleaned.length} chars), falling back to page scrape: ${url}`
+      );
     }
-    console.log(
-      `content:encoded too short (${cleaned.length} chars), falling back to page scrape: ${url}`
-    );
   }
 
-  try {
-    const canonicalUrl = canonicalize_article_url(url);
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 20000);
-    let response;
+  // 2) Hit the live page when we still need a body, OR have no images yet.
+  // The latter covers WordPress feeds whose content:encoded has text but no
+  // inline images — we still want their og:image / in-article art.
+  if (!body || dedupe_images(images).length === 0) {
     try {
-      response = await fetch(canonicalUrl, {
-        signal: controller.signal,
-        headers: {
-          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
-          "Accept-Language": "en-US,en;q=0.9",
-          "Accept-Encoding": "gzip, deflate",   // drop "br" — node-fetch won't decode it
-          "Sec-Fetch-Dest": "document",
-          "Sec-Fetch-Mode": "navigate",
-          "Sec-Fetch-Site": "none",
-          "Sec-Fetch-User": "?1",
-          "Upgrade-Insecure-Requests": "1",
+      const canonicalUrl = canonicalize_article_url(url);
+      const $ = await fetch_page_cheerio(canonicalUrl);
+      if ($) {
+        if (!body) {
+          const summary = extract_article_body($, canonicalUrl);
+          const filterSummary = summary ? clean_article_text(summary) : "";
+          if (!filterSummary) {
+            console.log("Url Item not scrapped: " + canonicalUrl);
+          } else if (is_likely_non_article_page($, filterSummary, canonicalUrl)) {
+            console.log("Likely non-article page skipped: " + canonicalUrl);
+          } else {
+            body = filterSummary;
+          }
         }
-      });
-    } finally {
-      clearTimeout(timeoutId);
+        images.push(...extract_images_from_page($, canonicalUrl));
+      }
+    } catch (error) {
+      console.error("Error fetching or parsing the HTML:", error);
     }
-
-    if (!response.ok) {
-      console.log(
-        `Skipping article due to non-OK response (${response.status}): ${canonicalUrl}`
-      );
-      return empty;
-    }
-
-    const html = await response.text();
-    const $ = cheerioLoad(html);
-
-    const summary = extract_article_body($, canonicalUrl);
-    if (!summary) {
-      console.log("Url Item not scrapped: " + canonicalUrl);
-      return empty;
-    }
-
-    const finalSummary = summary;
-
-    // Cleanup before AI rewrite to reduce junk and token spend.
-    const filterSummary = clean_article_text(finalSummary);
-    if (!filterSummary) {
-      console.log(
-        "Skipping article, body empty after cleaning: " + canonicalUrl
-      );
-      return empty;
-    }
-
-    if (is_likely_non_article_page($, filterSummary, canonicalUrl)) {
-      console.log("Likely non-article page skipped: " + canonicalUrl);
-      return empty;
-    }
-
-    const pageImages = extract_images_from_page($, canonicalUrl);
-    return {
-      body: filterSummary,
-      images: dedupe_images([...leadImage, ...pageImages]),
-    };
-  } catch (error) {
-    console.error("Error fetching or parsing the HTML:", error);
-    return empty;
   }
+
+  return { body, images: dedupe_images(images) };
 }
 
 // Function to get data from DynamoDB
