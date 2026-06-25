@@ -30,6 +30,25 @@ function grabPicDesc(child) {
   return result;
 }
 
+// Pull the first usable lead image out of a WordPress content:encoded blob.
+// Prefers the full-size original (data-orig-file) over the rendered src, and
+// skips avatars/emoji/tracking pixels that aren't real article art.
+function extractFirstContentImage(html) {
+  if (!html) return null;
+  const imgRegex = /<img\b[^>]*>/gi;
+  let match;
+  while ((match = imgRegex.exec(html)) !== null) {
+    const tag = match[0];
+    const orig = tag.match(/data-orig-file=["']([^"']+)["']/i);
+    const src = tag.match(/\ssrc=["']([^"']+)["']/i);
+    const url = (orig && orig[1]) || (src && src[1]);
+    if (!url) continue;
+    if (/gravatar\.com|\/emoji\/|\.svg(\?|$)|^data:image/i.test(url)) continue;
+    return url;
+  }
+  return null;
+}
+
 export function getXmlChannelNodeFromXMLString(str) {
   var doc = new xmldoc.XmlDocument(str);
   return doc.descendantWithPath("channel");
@@ -97,9 +116,24 @@ export function extractNewsDataFromXMLChannelNode(channelNode) {
             }
             break;
           }
+          case "content:encoded": {
+            // WordPress feeds carry the full, untruncated article HTML here
+            // (description is only a short excerpt). Keep it so the scraper
+            // can use it as the body source instead of re-fetching the page.
+            newItem.contentHtml = value;
+            const leadImage = extractFirstContentImage(value);
+            if (leadImage && !newItem.imageUrl) {
+              newItem.imageUrl = leadImage;
+              if (!newItem.pic) newItem.pic = leadImage;
+            }
+            break;
+          }
           case "media:content":
             newItem.picDesc = grabPicDesc(c);
             newItem.pic = grabPic(c);
+            if (!newItem.imageUrl && newItem.pic) {
+              newItem.imageUrl = newItem.pic;
+            }
             break;
           //default: console.log("Unhandled item attribute: "+ c.name + ": " + value);
         }
