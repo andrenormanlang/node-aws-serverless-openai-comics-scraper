@@ -88,6 +88,12 @@ const SLUG_MAX_LENGTH = 100;
 const ITEM_PROCESS_CONCURRENCY = 4;
 const MIN_ARTICLE_TEXT_LENGTH = 700;
 
+// Image scraping: cap how many we keep per article and skip non-content art
+// (avatars, emoji, tracking pixels, site chrome, sprites).
+const MAX_ARTICLE_IMAGES = 12;
+const IMAGE_SKIP_REGEX =
+  /gravatar\.com|\/emoji\/|\.svg(\?|$)|^data:|sprite|spacer|1x1|pixel|blank\.|\/avatars?\/|feed-?icon|wp-includes\/images|wp-content\/themes/i;
+
 function canonicalize_article_url(rawUrl) {
   try {
     const parsed = new URL(rawUrl);
@@ -231,15 +237,90 @@ function extract_article_body($, url) {
   return "";
 }
 
-// Extract clean article text from a standalone HTML fragment (e.g. the RSS
-// content:encoded blob). cheerio decodes HTML entities here, so numeric refs
-// like &#8230; / &#8217; come out as proper "…" / "'" characters.
-function extract_body_from_html(html) {
-  if (!html) return "";
+// Resolve an image reference against the article URL and normalize it.
+// Handles srcset values ("url 600w, url2 1200w") by taking the first URL.
+function normalize_image_url(src, baseUrl) {
+  if (!src) return null;
+  const first = src.trim().split(/[\s,]+/)[0];
+  if (!first) return null;
+  try {
+    return new URL(first, baseUrl).toString();
+  } catch {
+    return first;
+  }
+}
+
+// Drop junk/duplicate images and cap the list length.
+function dedupe_images(urls) {
+  const seen = new Set();
+  const output = [];
+  for (const url of urls) {
+    if (!url || IMAGE_SKIP_REGEX.test(url)) continue;
+    if (seen.has(url)) continue;
+    seen.add(url);
+    output.push(url);
+  }
+  return output.slice(0, MAX_ARTICLE_IMAGES);
+}
+
+// Collect <img> sources from a cheerio scope, preferring full-size originals
+// and lazy-loaded data-* attributes over the rendered (often thumbnail) src.
+function collect_images_from_cheerio($, scope, baseUrl) {
+  const urls = [];
+  scope.find("img").each((_, img) => {
+    const $img = $(img);
+    const raw =
+      $img.attr("data-orig-file") ||
+      $img.attr("data-src") ||
+      $img.attr("data-lazy-src") ||
+      $img.attr("src") ||
+      $img.attr("srcset");
+    const url = normalize_image_url(raw, baseUrl);
+    if (url) urls.push(url);
+  });
+  return urls;
+}
+
+// Extract clean article text AND images from a standalone HTML fragment
+// (e.g. the RSS content:encoded blob). cheerio decodes HTML entities here, so
+// numeric refs like &#8230; / &#8217; come out as proper "…" / "'" characters.
+function extract_content_from_html(html, baseUrl) {
+  if (!html) return { body: "", images: [] };
   const $ = cheerioLoad(html);
   $(STRIP_SELECTORS.join(",")).remove();
   const root = $("body").get(0) || $.root().get(0);
-  return extract_text_with_newlines(root).trim();
+  const body = extract_text_with_newlines(root).trim();
+  const images = collect_images_from_cheerio($, $("body"), baseUrl);
+  return { body, images };
+}
+
+// Extract images from a fetched article page: the social-share image first
+// (usually the marquee art), then images inside the matched article body.
+// Works for every source, including non-WordPress feeds without content:encoded.
+function extract_images_from_page($, url) {
+  const urls = [];
+
+  const og =
+    $('meta[property="og:image"]').attr("content") ||
+    $('meta[property="og:image:url"]').attr("content") ||
+    $('meta[name="twitter:image"]').attr("content");
+  const ogUrl = normalize_image_url(og, url);
+  if (ogUrl) urls.push(ogUrl);
+
+  for (const selector of get_selectors_for_url(url)) {
+    const el = $(selector).first();
+    if (!el.length) continue;
+
+    const clone = el.clone();
+    clone.find(STRIP_SELECTORS.join(",")).remove();
+    const found = collect_images_from_cheerio($, clone, url);
+    if (found.length) {
+      urls.push(...found);
+      break;
+    }
+  }
+
+  return urls;
 }
 
 function get_og_type($) {
@@ -431,7 +512,8 @@ async function fetch_data_from_ai(data) {
         return;
       }
 
-      const articleBody = await get_article_data(item);
+      const { body: articleBody, images: articleImages } =
+        await get_article_data(item);
       // Generate a random 3-digit number.
       let randomDigits = Math.random().toString(36).substr(2, 3);
 
@@ -513,6 +595,8 @@ async function fetch_data_from_ai(data) {
           orgBody,
           rwTitle: item?.title,
           rwDescription: item?.description,
+          images: articleImages,
+          imageUrl: articleImages[0] || item.imageUrl || null,
         });
       } else {
         console.log("Skipping DB write — article body empty for: " + item.id);
@@ -553,21 +637,27 @@ function clean_article_text(text) {
   return deduped.join("\n");
 }
 
-// Function to fetch article data from an RSS item.
+// Function to fetch article data (body text + images) from an RSS item.
 // Prefers the feed's content:encoded (full, untruncated body) and only falls
 // back to fetching and scraping the live page when that's missing or too short.
+// Returns { body, images } — images works for ALL sources (content:encoded for
+// WordPress feeds; og:image + in-article <img>s from the live page otherwise).
 async function get_article_data(item) {
   const url = typeof item === "string" ? item : item?.id;
+  // A lead image may already be on the item from RSS ingest (content:encoded
+  // or media:content); keep it as the first gallery candidate.
+  const leadImage =
+    item && typeof item === "object" && item.imageUrl ? [item.imageUrl] : [];
+  const empty = { body: "", images: dedupe_images(leadImage) };
 
   if (item && typeof item === "object" && item.contentHtml) {
-    const fromFeed = clean_article_text(
-      extract_body_from_html(item.contentHtml)
-    );
-    if (fromFeed && fromFeed.length >= MIN_ARTICLE_TEXT_LENGTH) {
-      return fromFeed;
+    const { body, images } = extract_content_from_html(item.contentHtml, url);
+    const cleaned = clean_article_text(body);
+    if (cleaned && cleaned.length >= MIN_ARTICLE_TEXT_LENGTH) {
+      return { body: cleaned, images: dedupe_images([...leadImage, ...images]) };
     }
     console.log(
-      `content:encoded too short (${fromFeed.length} chars), falling back to page scrape: ${url}`
+      `content:encoded too short (${cleaned.length} chars), falling back to page scrape: ${url}`
     );
   }
 
@@ -599,7 +689,7 @@ async function get_article_data(item) {
       console.log(
         `Skipping article due to non-OK response (${response.status}): ${canonicalUrl}`
       );
-      return "";
+      return empty;
     }
 
     const html = await response.text();
@@ -608,7 +698,7 @@ async function get_article_data(item) {
     const summary = extract_article_body($, canonicalUrl);
     if (!summary) {
       console.log("Url Item not scrapped: " + canonicalUrl);
-      return "";
+      return empty;
     }
 
     const finalSummary = summary;
@@ -619,18 +709,22 @@ async function get_article_data(item) {
       console.log(
         "Skipping article, body empty after cleaning: " + canonicalUrl
       );
-      return "";
+      return empty;
     }
 
     if (is_likely_non_article_page($, filterSummary, canonicalUrl)) {
       console.log("Likely non-article page skipped: " + canonicalUrl);
-      return "";
+      return empty;
     }
 
-    return filterSummary;
+    const pageImages = extract_images_from_page($, canonicalUrl);
+    return {
+      body: filterSummary,
+      images: dedupe_images([...leadImage, ...pageImages]),
+    };
   } catch (error) {
     console.error("Error fetching or parsing the HTML:", error);
-    return null;
+    return empty;
   }
 }
 
@@ -689,6 +783,8 @@ const save_data_in_dynamoDb = async function (item, options = {}) {
     descriptionUserId = null,
     titleUserId = null,
     nsURL = null,
+    images = null,
+    imageUrl = null,
   } = options;
 
   // const dynamodb = new AWS.DynamoDB.DocumentClient();
@@ -733,6 +829,17 @@ const save_data_in_dynamoDb = async function (item, options = {}) {
   if (rwUserName) {
     updateExpression += ", rwUserName=:rwUserName";
     expressionAttributeValues[":rwUserName"] = rwUserName;
+  }
+
+  // Persist scraped images only when we actually have them, so an AI-rewrite
+  // failure (which omits these) never nulls out a lead image set at RSS ingest.
+  if (Array.isArray(images)) {
+    updateExpression += ", images=:images";
+    expressionAttributeValues[":images"] = images;
+  }
+  if (imageUrl) {
+    updateExpression += ", imageUrl=:imageUrl";
+    expressionAttributeValues[":imageUrl"] = imageUrl;
   }
 
   updateExpression +=
