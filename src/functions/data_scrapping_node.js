@@ -231,6 +231,17 @@ function extract_article_body($, url) {
   return "";
 }
 
+// Extract clean article text from a standalone HTML fragment (e.g. the RSS
+// content:encoded blob). cheerio decodes HTML entities here, so numeric refs
+// like &#8230; / &#8217; come out as proper "…" / "'" characters.
+function extract_body_from_html(html) {
+  if (!html) return "";
+  const $ = cheerioLoad(html);
+  $(STRIP_SELECTORS.join(",")).remove();
+  const root = $("body").get(0) || $.root().get(0);
+  return extract_text_with_newlines(root).trim();
+}
+
 function get_og_type($) {
   const ogType = $('meta[property="og:type"]').attr("content") || "";
   return normalize_for_matching(ogType).trim();
@@ -420,7 +431,7 @@ async function fetch_data_from_ai(data) {
         return;
       }
 
-      const articleBody = await get_article_data(item.id);
+      const articleBody = await get_article_data(item);
       // Generate a random 3-digit number.
       let randomDigits = Math.random().toString(36).substr(2, 3);
 
@@ -542,8 +553,24 @@ function clean_article_text(text) {
   return deduped.join("\n");
 }
 
-// Function to fetch article data from URL
-async function get_article_data(url) {
+// Function to fetch article data from an RSS item.
+// Prefers the feed's content:encoded (full, untruncated body) and only falls
+// back to fetching and scraping the live page when that's missing or too short.
+async function get_article_data(item) {
+  const url = typeof item === "string" ? item : item?.id;
+
+  if (item && typeof item === "object" && item.contentHtml) {
+    const fromFeed = clean_article_text(
+      extract_body_from_html(item.contentHtml)
+    );
+    if (fromFeed && fromFeed.length >= MIN_ARTICLE_TEXT_LENGTH) {
+      return fromFeed;
+    }
+    console.log(
+      `content:encoded too short (${fromFeed.length} chars), falling back to page scrape: ${url}`
+    );
+  }
+
   try {
     const canonicalUrl = canonicalize_article_url(url);
     const controller = new AbortController();
