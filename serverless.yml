@@ -44,6 +44,11 @@ provider:
     GPT_MODEL_LONG: ${self:custom.gptModelLong}
     GPT_TOKEN_THRESHOLD: ${self:custom.gptTokenThreshold}
     openAiKey: '{{resolve:ssm:/retropop-dispatch/openai-key}}'
+    # Optional ScraperAPI key for retrying Cloudflare-blocked pages (comicsbeat,
+    # aiptcomics). Defaults to '' when the SSM param is absent, in which case the
+    # scraper just skips the proxy retry. Create the param to enable it:
+    #   aws ssm put-parameter --name /retropop-dispatch/scraperapi-key --type SecureString --value <key>
+    scraperApiKey: ${ssm:/retropop-dispatch/scraperapi-key, ''}
 
   iam:
     role:

@@ -94,6 +94,17 @@ const MAX_ARTICLE_IMAGES = 12;
 const IMAGE_SKIP_REGEX =
   /gravatar\.com|\/emoji\/|\.svg(\?|$)|^data:|sprite|spacer|1x1|pixel|blank\.|\/avatars?\/|feed-?icon|wp-includes\/images|wp-content\/themes/i;
 
+// Some publishers (Cloudflare-protected WordPress like comicsbeat / aiptcomics)
+// return 403 to datacenter/Lambda IPs. When a direct fetch is blocked, retry it
+// through ScraperAPI — but only if a key is configured; otherwise behave as before.
+const SCRAPERAPI_KEY = process.env.scraperApiKey;
+const PROXY_RETRY_STATUSES = new Set([401, 403, 429]);
+function scraper_api_url(targetUrl) {
+  return `https://api.scraperapi.com/?api_key=${SCRAPERAPI_KEY}&url=${encodeURIComponent(
+    targetUrl
+  )}`;
+}
+
 function canonicalize_article_url(rawUrl) {
   try {
     const parsed = new URL(rawUrl);
@@ -637,13 +648,12 @@ function clean_article_text(text) {
   return deduped.join("\n");
 }
 
-// Fetch an article page and return its parsed cheerio document, or null.
-async function fetch_page_cheerio(canonicalUrl) {
+// Fetch a URL as HTML, returning the raw Response (or throwing on network error).
+async function fetch_html(targetUrl, timeoutMs = 20000) {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 20000);
-  let response;
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    response = await fetch(canonicalUrl, {
+    return await fetch(targetUrl, {
       signal: controller.signal,
       headers: {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
@@ -659,6 +669,30 @@ async function fetch_page_cheerio(canonicalUrl) {
     });
   } finally {
     clearTimeout(timeoutId);
+  }
+}
+
+// Fetch an article page and return its parsed cheerio document, or null.
+// Falls back to ScraperAPI when the direct fetch is blocked (403/401/429) and a
+// key is configured, so Cloudflare-protected sources aren't permanently lost.
+async function fetch_page_cheerio(canonicalUrl) {
+  let response = await fetch_html(canonicalUrl);
+
+  if (
+    !response.ok &&
+    PROXY_RETRY_STATUSES.has(response.status) &&
+    SCRAPERAPI_KEY
+  ) {
+    console.log(
+      `Direct fetch ${response.status} for ${canonicalUrl}; retrying via ScraperAPI`
+    );
+    try {
+      // Proxy fetches are slower; give them a longer budget.
+      const proxied = await fetch_html(scraper_api_url(canonicalUrl), 70000);
+      if (proxied) response = proxied;
+    } catch (err) {
+      console.warn("ScraperAPI fetch failed:", err.message);
+    }
   }
 
   if (!response.ok) {
@@ -679,13 +713,18 @@ async function fetch_page_cheerio(canonicalUrl) {
 // body carried none, so feeds like denofgeek/comicbookherald aren't left blank.
 async function get_article_data(item) {
   const url = typeof item === "string" ? item : item?.id;
-  // A lead image may already be on the item from RSS ingest (content:encoded
-  // or media:content); keep it as the first gallery candidate.
-  const leadImage =
-    item && typeof item === "object" && item.imageUrl ? [item.imageUrl] : [];
+  // A lead image may already be on the item from RSS ingest (content:encoded,
+  // media:content, or an <img> inside the description → item.pic); keep these as
+  // the first gallery candidates so sources without a scrapeable page (e.g.
+  // comicsbeat) still get a thumbnail.
+  const leadImages = [];
+  if (item && typeof item === "object") {
+    if (item.imageUrl) leadImages.push(item.imageUrl);
+    if (item.pic) leadImages.push(item.pic);
+  }
 
   let body = "";
-  let images = [...leadImage];
+  let images = [...leadImages];
 
   // 1) Body + inline images from content:encoded, when it's substantial.
   if (item && typeof item === "object" && item.contentHtml) {
@@ -724,6 +763,17 @@ async function get_article_data(item) {
       }
     } catch (error) {
       console.error("Error fetching or parsing the HTML:", error);
+    }
+  }
+
+  // 3) Last resort: some feeds (e.g. comicsbeat) ship no content:encoded AND
+  // block scraping, leaving us with no body at all. Fall back to the RSS
+  // description text so the article can still be rewritten instead of dropped.
+  if (!body && item && typeof item === "object" && item.description) {
+    const fallback = clean_article_text(item.description);
+    if (fallback && fallback.length >= MIN_ARTICLE_TEXT_LENGTH) {
+      console.log(`Using RSS description as body fallback for: ${url}`);
+      body = fallback;
     }
   }
 
